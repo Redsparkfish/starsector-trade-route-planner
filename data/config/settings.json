@@ -16,7 +16,7 @@
 		"posTimeWeight": 0.5
 	},
 	"graphics": {
-		"traderouteplanner": {
+		"tradeRoutePlanner": {
 			"intel": "graphics/icons/intel/price_update.png"
 		}
 	}

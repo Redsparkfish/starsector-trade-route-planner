@@ -1,16 +1,16 @@
 modID,fieldID,fieldName,fieldType,defaultValue,secondaryValue,fieldDescription,minValue,maxValue,tab
-traderouteplanner,trp_header,Trade Route Planner,Header,跑商规划器,,,,,规划
-traderouteplanner,maxDays,路线时间上限（天）,Int,30,,"整条路线（含飞到第一站）的预计时间上限。",5,60,规划
-traderouteplanner,isLoop,闭环路线,Boolean,true,,"开启后最后回到路线的起点市场，不是计算时舰队所在的位置。",,,规划
-traderouteplanner,blackMarketFactions,默认黑市势力,String,"pirates,luddic_path",,"新存档和点（恢复默认）时启用黑市的势力。当前存档请到情报规划设置里改。",,,规划
-traderouteplanner,openMarketFactions,默认额外开市势力,String,,,"新存档默认。通常留空。当前存档请到情报规划设置里改。",,,规划
-traderouteplanner,maxStops,额外停靠站上限,Int,4,,"搜索时最多经过的市场数（不含起点）。市场很多时可适当调低，避免计算过慢。",2,6,规划
-traderouteplanner,qtySafetyMargin,库存使用比例,Double,0.9,,"按预计库存的多少来规划。默认 90%，减少到站后货不够。",0.3,1.0,规划
-traderouteplanner,computeBudgetMs,计算时限（毫秒）,Int,2000,,"点（计算新路线）时的搜索时限。超时后用当时找到的较好路线，避免卡住游戏。市场很多时可调高。",50,10000,规划
-traderouteplanner,assumeApiPriceExcludesTariff,开市报价不含关税,Boolean,true,,"开启后按交易界面合计处理开市关税。一般不用改。",,,规划
-traderouteplanner,autoAdvanceOnArrival,到站自动切换,Boolean,true,,"抵达下一站后自动把作业单切到下一站。不会自动导航或自动买卖。关闭后需在情报里点（标记抵达）。",,,规划
-traderouteplanner,hudEnabled,旅行地图作业单,Boolean,true,,"在旅行地图显示当前路线作业单。关闭后只能从情报进入。",,,规划
-traderouteplanner,reserveSupplyDays,补给保留（天）,Int,100,,"保留这么多天的补给不拿去买卖；低于此量时到站会补到保留线。0 表示不保留。",0,999,规划
-traderouteplanner,reserveFuelDays,燃料保留（天）,Int,100,,"保留这么多天的燃料不拿去买卖；出航补油时尽量补到航行消耗后再剩这么多。0 表示不保留。",0,999,规划
-traderouteplanner,maxStartRangeLY,第一站范围（光年）,Int,10,,"只把这个距离以内的市场当作第一站。同星系始终计入。后续站不受此限制。",1,200,规划
-traderouteplanner,posTimeWeight,定位权重 alpha,Double,0.5,,"前往第一站也要花时间。0 更看重路线本身的收益；0.5 为默认，兼顾前往第一站的距离和之后的收益；1 完整计入前往第一站的时间。当前存档也可在情报规划设置里改。",0,1,规划
+tradeRoutePlanner,trp_header,Trade Route Planner,Header,跑商规划器,,,,,规划
+tradeRoutePlanner,maxDays,路线时间上限（天）,Int,30,,"整条路线（含飞到第一站）的预计时间上限。",5,60,规划
+tradeRoutePlanner,isLoop,闭环路线,Boolean,true,,"开启后最后回到路线的起点市场，不是计算时舰队所在的位置。",,,规划
+tradeRoutePlanner,blackMarketFactions,默认黑市势力,String,"pirates,luddic_path",,"新存档和点（恢复默认）时启用黑市的势力。当前存档请到情报规划设置里改。",,,规划
+tradeRoutePlanner,openMarketFactions,默认额外开市势力,String,,,"新存档默认。通常留空。当前存档请到情报规划设置里改。",,,规划
+tradeRoutePlanner,maxStops,额外停靠站上限,Int,4,,"搜索时最多经过的市场数（不含起点）。市场很多时可适当调低，避免计算过慢。",2,6,规划
+tradeRoutePlanner,qtySafetyMargin,库存使用比例,Double,0.9,,"按预计库存的多少来规划。默认 90%，减少到站后货不够。",0.3,1.0,规划
+tradeRoutePlanner,computeBudgetMs,计算时限（毫秒）,Int,2000,,"点（计算新路线）时的搜索时限。超时后用当时找到的较好路线，避免卡住游戏。市场很多时可调高。",50,10000,规划
+tradeRoutePlanner,assumeApiPriceExcludesTariff,开市报价不含关税,Boolean,true,,"开启后按交易界面合计处理开市关税。一般不用改。",,,规划
+tradeRoutePlanner,autoAdvanceOnArrival,到站自动切换,Boolean,true,,"抵达下一站后自动把作业单切到下一站。不会自动导航或自动买卖。关闭后需在情报里点（标记抵达）。",,,规划
+tradeRoutePlanner,hudEnabled,旅行地图作业单,Boolean,true,,"在旅行地图显示当前路线作业单。关闭后只能从情报进入。",,,规划
+tradeRoutePlanner,reserveSupplyDays,补给保留（天）,Int,100,,"保留这么多天的补给不拿去买卖；低于此量时到站会补到保留线。0 表示不保留。",0,999,规划
+tradeRoutePlanner,reserveFuelDays,燃料保留（天）,Int,100,,"保留这么多天的燃料不拿去买卖；出航补油时尽量补到航行消耗后再剩这么多。0 表示不保留。",0,999,规划
+tradeRoutePlanner,maxStartRangeLY,第一站范围（光年）,Int,10,,"只把这个距离以内的市场当作第一站。同星系始终计入。后续站不受此限制。",1,200,规划
+tradeRoutePlanner,posTimeWeight,定位权重 alpha,Double,0.5,,"前往第一站也要花时间。0 更看重路线本身的收益；0.5 为默认，兼顾前往第一站的距离和之后的收益；1 完整计入前往第一站的时间。当前存档也可在情报规划设置里改。",0,1,规划

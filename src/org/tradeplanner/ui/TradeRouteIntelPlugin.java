@@ -313,7 +313,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     @Override
     public String getIcon() {
         try {
-            return Global.getSettings().getSpriteName("traderouteplanner", "intel");
+            return Global.getSettings().getSpriteName(PlannerConfig.MOD_ID, "intel");
         } catch (Exception e) {
             return "graphics/icons/intel/price_update.png";
         }

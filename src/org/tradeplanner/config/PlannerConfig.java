@@ -18,7 +18,7 @@ import java.util.Set;
  */
 public final class PlannerConfig {
 
-    public static final String MOD_ID = "traderouteplanner";
+    public static final String MOD_ID = "tradeRoutePlanner";
     public static final String LUNA_ID = "lunalib";
     public static final String SETTINGS_FILE = "data/config/settings.json";
     public static final String SETTINGS_OBJECT = "TradeRoutePlanner";

@@ -1,4 +1,5 @@
-# Compile TradeRoutePlanner with the game JRE + Eclipse Compiler (no full JDK required).
+# Compile TradeRoutePlanner with the game JRE + Eclipse Compiler (no full JDK required),
+# then write dist/TradeRoutePlanner-<version>.zip (overwrites same name).
 # Usage: powershell -File compile.ps1
 
 $ErrorActionPreference = "Stop"
@@ -57,3 +58,27 @@ Get-ChildItem $out -Recurse -File | ForEach-Object {
 $zip.Dispose()
 $fs.Dispose()
 Write-Host "Wrote $jar ($((Get-Item $jar).Length) bytes)"
+
+$modInfo = Get-Content -Raw -Encoding UTF8 (Join-Path $root "mod_info.json") | ConvertFrom-Json
+$version = [string]$modInfo.version
+if ([string]::IsNullOrWhiteSpace($version)) { throw "mod_info.json has no version" }
+
+$dist = Join-Path $root "dist"
+$packRoot = Join-Path $dist "pack"
+$stage = Join-Path $packRoot "TradeRoutePlanner"
+$playerZip = Join-Path $dist ("TradeRoutePlanner-" + $version + ".zip")
+
+if (Test-Path $packRoot) { Remove-Item $packRoot -Recurse -Force }
+New-Item -ItemType Directory -Force -Path (Join-Path $stage "jars") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $stage "data\config") | Out-Null
+Copy-Item (Join-Path $root "mod_info.json") $stage
+Copy-Item (Join-Path $root "LICENSE") $stage
+Copy-Item (Join-Path $root "README.md") $stage
+Copy-Item $jar (Join-Path $stage "jars\TradeRoutePlanner.jar")
+Copy-Item (Join-Path $root "data\config\settings.json") (Join-Path $stage "data\config")
+Copy-Item (Join-Path $root "data\config\LunaSettings.csv") (Join-Path $stage "data\config")
+Copy-Item (Join-Path $root "data\config\LunaSettingsConfig.json") (Join-Path $stage "data\config")
+
+if (Test-Path $playerZip) { Remove-Item $playerZip -Force }
+[System.IO.Compression.ZipFile]::CreateFromDirectory($packRoot, $playerZip)
+Write-Host "Wrote $playerZip ($((Get-Item $playerZip).Length) bytes)"
