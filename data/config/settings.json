@@ -1,0 +1,23 @@
+{
+	"TradeRoutePlanner": {
+		"maxDays": 30,
+		"isLoop": true,
+		"blackMarketFactions": ["pirates", "luddic_path"],
+		"openMarketFactions": [],
+		"maxStops": 4,
+		"qtySafetyMargin": 0.9,
+		"computeBudgetMs": 2000,
+		"assumeApiPriceExcludesTariff": true,
+		"autoAdvanceOnArrival": true,
+		"hudEnabled": true,
+		"reserveSupplyDays": 100,
+		"reserveFuelDays": 100,
+		"maxStartRangeLY": 10,
+		"posTimeWeight": 0.5
+	},
+	"graphics": {
+		"traderouteplanner": {
+			"intel": "graphics/icons/intel/price_update.png"
+		}
+	}
+}

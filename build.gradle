@@ -1,0 +1,59 @@
+// Requires a JDK 17 + Gradle. On a JRE-only machine use compile.ps1 (game JRE + .tools/ecj.jar).
+plugins {
+    id 'java'
+}
+
+def starsectorHome = file('../..')
+def coreDir = new File(starsectorHome, 'starsector-core')
+def lunaJar = new File(starsectorHome, 'mods/Lunalib/jars/LunaLib.jar')
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+        resources {
+            srcDirs = []
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly files(
+            new File(coreDir, 'starfarer.api.jar'),
+            new File(coreDir, 'lwjgl.jar'),
+            new File(coreDir, 'lwjgl_util.jar'),
+            new File(coreDir, 'json.jar'),
+            new File(coreDir, 'log4j-1.2.9.jar'),
+            new File(coreDir, 'xstream-1.4.10.jar')
+    )
+    if (lunaJar.exists()) {
+        compileOnly files(lunaJar)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:none']
+}
+
+jar {
+    archiveFileName = 'TradeRoutePlanner.jar'
+    destinationDirectory = file('jars')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.register('installJar', Copy) {
+    dependsOn jar
+    from jar
+    into 'jars'
+}

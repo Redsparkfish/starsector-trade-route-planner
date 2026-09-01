@@ -1,0 +1,16 @@
+modID,fieldID,fieldName,fieldType,defaultValue,secondaryValue,fieldDescription,minValue,maxValue,tab
+traderouteplanner,trp_header,Trade Route Planner,Header,跑商规划器,,,,,规划
+traderouteplanner,maxDays,时间预算（天）,Int,30,,"规划器使用的时间上限 Tmax，不是市场营业时间窗。路线总预计旅行时间不得超过此值。",5,60,规划
+traderouteplanner,isLoop,闭环路线,Boolean,true,,"开启后终点回到起点市场 A，不返回计算时的舰队位置。",,,规划
+traderouteplanner,blackMarketFactions,默认黑市势力,String,"pirates,luddic_path",,"新存档和（恢复默认）时启用黑市的势力 ID（逗号分隔）。只在此名单、不在下方开市名单 = 仅黑市。当前存档请在情报（规划设置）里改，点确认才生效。",,,规划
+traderouteplanner,openMarketFactions,默认额外开市势力,String,,,"新存档默认：未列出的势力走开市。把势力同时写入黑市名单和这里 = 开市+黑市。通常留空。当前存档请在情报（规划设置）里改。",,,规划
+traderouteplanner,maxStops,最多停靠站,Int,4,,"搜索时最多经过的市场数（不含起点）。Nexerelin 大规模星区必须限制停数以免卡死情报界面。",2,6,规划
+traderouteplanner,qtySafetyMargin,数量安全边际,Double,0.9,,"乘在期望货架（未访问为原版 L0 x 稳定度；已访问为 leftover 按原版补货、回收靠向该上限）或卖出缺口上。货架无法远程精确读取，数量一律为估计。",0.3,1.0,规划
+traderouteplanner,computeBudgetMs,计算时限（毫秒）,Int,2000,,"点击（计算新路线）时的墙钟预算。默认 2 秒；可调到 10 秒。超时停止搜索并返回当前最优，以免卡死战役线程。",50,10000,规划
+traderouteplanner,assumeApiPriceExcludesTariff,API 报价未含关税,Boolean,true,,"若开启：对开市买价乘 (1+关税)、卖价乘 (1-关税)。请对照交易界面合计行实测后调整。getSupplyPrice 的 isPlayerPrice 不是黑市开关。",,,规划
+traderouteplanner,autoAdvanceOnArrival,到站自动推进,Boolean,true,,"接近或停靠当前下一站时自动把作业单指针推到下一站，并弹出战役消息。不会自动设导航、自动停靠或自动买卖。关闭后只能手动点（标记抵达）。",,,规划
+traderouteplanner,hudEnabled,旅行地图作业单,Boolean,true,,"在战役旅行地图右下角显示紧凑作业单（预计净利，天数，净利/天，下一站买卖，计算，导航，本站自动买卖）。关闭后只能从情报（贸易活动）进入。",,,规划
+traderouteplanner,reserveSupplyDays,补给保留（天）,Int,100,,"按当前舰队日补给消耗折算，保留这么多天的补给不拿去买卖；低于此量时到站会补到保留线。0 表示不保留。",0,999,规划
+traderouteplanner,reserveFuelDays,燃料保留（天）,Int,100,,"按当前 burn 的超空间日耗油折算（不是星系内日耗），保留这么多天的燃料不拿去买卖；出航补油时尽量补到航段消耗后再剩这么多。0 表示不保留。",0,999,规划
+traderouteplanner,maxStartRangeLY,起点范围（光年）,Int,10,,"只把超空间距离不超过此值的市场当作闭环或开环第一站 A。同星系为 0 光年，始终计入。中途站不受此限制。",1,200,规划
+traderouteplanner,posTimeWeight,定位权重 alpha,Double,0.5,,"搜索按 回路利润 / (回路天数 + alpha x 定位天数) 排序。0=忽略飞到起点的时间，1=定位与回路同等计入。情报净利/天按全程天数（定位+回路）计算。当前存档可在情报（规划设置）里改，点确认才生效。",0,1,规划
