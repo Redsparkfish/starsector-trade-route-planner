@@ -1,7 +1,7 @@
 {
     "id": "traderouteplanner",
     "name": "Trade Route Planner 星区跑商智能规划器",
-    "author": "TradeRoutePlanner",
+    "author": "Redsparkfish",
     "utility": true,
     "version": "0.7.0",
     "description": "咨询式跑商规划器：估计净利/天、作业单、仅下一站原版导航。到站后可选自动买卖。不连锁自动驾驶。",
