@@ -5,7 +5,7 @@ tradeRoutePlanner,isLoop,闭环路线,Boolean,true,,"开启后最后回到路线
 tradeRoutePlanner,blackMarketFactions,默认黑市势力,String,"pirates,luddic_path",,"新存档和点（恢复默认）时启用黑市的势力。当前存档请到情报规划设置里改。",,,规划
 tradeRoutePlanner,openMarketFactions,默认额外开市势力,String,,,"新存档默认。通常留空。当前存档请到情报规划设置里改。",,,规划
 tradeRoutePlanner,maxStops,额外停靠站上限,Int,4,,"搜索时最多经过的市场数（不含起点）。市场很多时可适当调低，避免计算过慢。",2,6,规划
-tradeRoutePlanner,qtySafetyMargin,库存使用比例,Double,0.9,,"按预计库存的多少来规划。默认 90%，减少到站后货不够。",0.3,1.0,规划
+tradeRoutePlanner,qtySafetyMargin,库存使用比例,Double,0.9,,"按预计库存的多少来规划。默认 90%%，减少到站后货不够。",0.3,1.0,规划
 tradeRoutePlanner,computeBudgetMs,计算时限（毫秒）,Int,2000,,"点（计算新路线）时的搜索时限。超时后用当时找到的较好路线，避免卡住游戏。市场很多时可调高。",50,10000,规划
 tradeRoutePlanner,assumeApiPriceExcludesTariff,开市报价不含关税,Boolean,true,,"开启后按交易界面合计处理开市关税。一般不用改。",,,规划
 tradeRoutePlanner,autoAdvanceOnArrival,到站自动切换,Boolean,true,,"抵达下一站后自动把作业单切到下一站。不会自动导航或自动买卖。关闭后需在情报里点（标记抵达）。",,,规划
