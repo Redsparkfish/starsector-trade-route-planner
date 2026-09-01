@@ -8,6 +8,7 @@ out/
 .project
 .vscode/
 .tools/
+dist/
 *.log
 .DS_Store
 Thumbs.db
