@@ -81,8 +81,8 @@ public final class UiText {
 
     public static final String SETTINGS_INTRO =
             "改完点（确认）保存并返回。本页改当前存档的开市、黑市和定位权重。";
-    public static final String SETTINGS_F2_NOTE =
-            "路线时间、闭环、停靠上限、燃料和补给保留请到 F2（需 LunaLib）修改。";
+    public static final String SETTINGS_LUNA_NOTE =
+            "路线时间、闭环、停靠上限、燃料和补给保留请到 F3（需 LunaLib）修改。";
     public static final String SETTINGS_ALPHA_HELP =
             "前往第一站也要花时间。0 更看重路线本身的收益；0.5 为默认，兼顾前往第一站的距离和之后的收益；"
                     + "1 完整计入前往第一站的时间。普通情况下保持默认即可。";

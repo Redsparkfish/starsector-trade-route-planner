@@ -36,7 +36,7 @@ final class TradeSettingsPanel {
 
         info.addSectionHeading(UiText.SECTION_SETTINGS, Alignment.MID, 0f);
         info.addPara(UiText.SETTINGS_INTRO, pad);
-        info.addPara(UiText.SETTINGS_F2_NOTE, 3f);
+        info.addPara(UiText.SETTINGS_LUNA_NOTE, 3f);
 
         addActionButtons(info, w, pad);
         renderAlphaBlock(intel, info, w, pad);

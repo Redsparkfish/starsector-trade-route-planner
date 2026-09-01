@@ -6,7 +6,7 @@ import lunalib.lunaSettings.LunaSettingsListener;
 import org.apache.log4j.Level;
 
 /**
- * Reloads planner settings when the player saves LunaLib (F2) options.
+ * Reloads planner settings when the player saves LunaLib (F3) options.
  * Isolated so {@link org.tradeplanner.TradePlannerModPlugin} does not hard-link LunaLib.
  */
 public final class LunaConfigListener implements LunaSettingsListener {

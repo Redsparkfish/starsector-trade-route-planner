@@ -20,7 +20,7 @@ public class TradePlannerModPlugin extends BaseModPlugin {
             Global.getLogger(TradePlannerModPlugin.class).log(
                     Level.WARN,
                     "TradeRoutePlanner: LunaLib not enabled. Using data/config/settings.json. "
-                            + "Install LunaLib for in-game F2 sliders."
+                            + "Install LunaLib for in-game F3 sliders."
             );
         } else {
             try {

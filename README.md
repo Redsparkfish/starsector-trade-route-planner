@@ -46,7 +46,7 @@
 
 启动游戏后，在启动器中勾选 **Trade Route Planner** 即可。
 
-LunaLib 为可选依赖。安装 LunaLib 后，可以通过 **F2** 在游戏内修改路线时间、闭环、停靠站上限、燃料和补给保留量等设置；没有 LunaLib 时，也可以直接修改：
+LunaLib 为可选依赖。安装 LunaLib 后，可以通过 **F3** 在游戏内修改路线时间、闭环、停靠站上限、燃料和补给保留量等设置；没有 LunaLib 时，也可以直接修改：
 
 `data/config/settings.json`
 

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Runtime planner settings. LunaLib (F2) overrides {@code data/config/settings.json}
+ * Runtime planner settings. LunaLib (F3) overrides {@code data/config/settings.json}
  * when the lunalib mod is enabled. Search knobs are consumed by {@code RouteOptimizationEngine}.
  */
 public final class PlannerConfig {
