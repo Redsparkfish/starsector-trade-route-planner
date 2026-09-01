@@ -39,20 +39,17 @@ final class TradeSettingsPanel {
         info.addPara(UiText.SETTINGS_F2_NOTE, 3f);
 
         addActionButtons(info, w, pad);
-        renderAlphaBlock(intel, info, w, pad, h);
+        renderAlphaBlock(intel, info, w, pad);
         renderFactionBlock(info, draft, cfg, pad, h, neg);
 
         panel.addUIElement(info).inTL(0, 0);
     }
 
     private static void renderAlphaBlock(TradeRouteIntelPlugin intel, TooltipMakerAPI info,
-                                         float w, float pad, Color h) {
+                                         float w, float pad) {
         float draft = intel.ensurePosTimeWeightDraft();
         info.addSectionHeading(UiText.SECTION_ALPHA, Alignment.MID, pad);
         info.addPara(UiText.SETTINGS_ALPHA_HELP, 3f);
-        String loops = draft <= 0.001f ? UiText.INFINITE : String.format("%.1f", 1f / draft);
-        info.addPara(UiText.ALPHA_DRAFT, 3f, h,
-                String.format("%.2f", draft), loops);
         Color base = Misc.getBasePlayerColor();
         Color bg = Misc.getDarkPlayerColor();
         Color bright = Misc.getBrightPlayerColor();

@@ -37,25 +37,7 @@ public final class TradeRouteCustomPanel {
         int index = intel.getNextWaypointIndex();
 
         info.addSectionHeading(UiText.TITLE, Alignment.MID, 0f);
-        info.addPara(UiText.INTEL_BLURB, pad);
 
-        info.addPara(UiText.CONFIG_LINE, pad, h,
-                String.valueOf(cfg.getMaxDays()),
-                UiText.yesNo(cfg.isLoop()),
-                String.valueOf(cfg.getMaxStops()),
-                String.valueOf(cfg.getMaxStartRangeLy()),
-                String.format("%.2f", cfg.getPosTimeWeight()),
-                UiText.onOff(cfg.isAutoAdvanceOnArrival()));
-        info.addPara(UiText.RESERVE_LINE,
-                3f, h,
-                String.valueOf(cfg.getReserveSupplyDays()),
-                String.valueOf(cfg.getReserveFuelDays()));
-        List<String> factionIds = MarketDataCollector.economyFactionIds();
-        String policy = UiText.factionPolicy(intel.getFactionTrade(), cfg, factionIds);
-        info.addPara(UiText.FACTION_POLICY_LINE, 3f, h, policy);
-        info.addButton(UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS, width - 20f, 24f, 6f);
-
-        renderBanner(info, plan, index, pad, h, pos, neg);
         renderButtons(info, plan, intel.isTripFinished(), width, pad);
         if (intel.getLastNavMessage() != null) {
             info.addPara("%s", 3f, h, intel.getLastNavMessage());
@@ -65,19 +47,28 @@ public final class TradeRouteCustomPanel {
             info.addPara(UiText.NOT_CALCULATED_HINT, pad);
         } else if (plan.isEmpty()) {
             info.addPara(UiText.EMPTY_PLAN, pad, neg, UiText.emptyReason(plan.getEmptyReason()));
-            appendComputeTime(info, plan, 3f);
         } else if (intel.isTripFinished()) {
+            renderBanner(info, plan, pad, h);
             info.addSectionHeading(UiText.SECTION_JOB, Alignment.MID, pad);
             info.addPara(UiText.TRIP_FINISHED_RECALC, pad, h);
             appendTripSummary(info, intel, 3f);
             renderAllStopCards(info, plan, index, pad, h, pos, neg);
         } else {
+            renderBanner(info, plan, pad, h);
             renderNextStopSheet(info, plan, index, pad, h, pos, neg);
             renderAllStopCards(info, plan, index, pad, h, pos, neg);
         }
 
         renderFleetLine(info, intel.getFleetState(), pad, h, cfg);
         info.addButton(UiText.BTN_REFRESH, TradeRouteIntelPlugin.BUTTON_REFRESH, width - 20f, 24f, pad * 2f);
+
+        List<String> factionIds = MarketDataCollector.economyFactionIds();
+        String policy = UiText.factionPolicy(intel.getFactionTrade(), cfg, factionIds);
+        info.addPara(UiText.SETTINGS_SUMMARY, pad, h,
+                UiText.loopKind(cfg.isLoop()),
+                String.valueOf(cfg.getMaxDays()),
+                policy);
+        info.addButton(UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS, width - 20f, 24f, 6f);
         panel.addUIElement(info).inTL(0, 0);
     }
 
@@ -85,10 +76,9 @@ public final class TradeRouteCustomPanel {
         float pad = 10f;
         Color pos = Misc.getPositiveHighlightColor();
         Color neg = Misc.getNegativeHighlightColor();
-        info.addPara(UiText.INTEL_SMALL_BLURB, pad);
         RoutePlan plan = intel.getLastPlan();
         if (plan != null && !plan.isEmpty()) {
-            appendPlanTotals(info, plan, pad);
+            appendPlanTotals(info, plan, pad, false);
             if (intel.isTripFinished()) {
                 info.addPara(UiText.TRIP_FINISHED_PERIOD, 3f);
                 appendTripSummary(info, intel, 3f);
@@ -101,30 +91,21 @@ public final class TradeRouteCustomPanel {
             appendOperationalBuys(info, plan.getOutgoingLeg(index), pos, 2);
         } else if (plan != null && plan.isEmpty()) {
             info.addPara(UiText.EMPTY_PLAN_SHORT, pad, neg, UiText.emptyReason(plan.getEmptyReason()));
-            appendComputeTime(info, plan, 3f);
         } else {
             info.addPara(UiText.OPEN_DETAIL_TO_CALCULATE, pad);
         }
     }
 
-    private static void renderBanner(TooltipMakerAPI info, RoutePlan plan, int index,
-                                     float pad, Color h, Color pos, Color neg) {
+    private static void renderBanner(TooltipMakerAPI info, RoutePlan plan, float pad, Color h) {
         info.addSectionHeading(UiText.SECTION_SUMMARY, Alignment.MID, pad);
         if (plan == null || plan.isEmpty()) {
             return;
         }
-        appendPlanTotals(info, plan, pad);
+        appendPlanTotals(info, plan, pad, true);
         info.addPara(UiText.EXTRA_STOPS,
                 3f, h,
-                Misc.getDGSCredits(plan.getGrossProfit()),
                 UiText.loopKind(plan.isLoop()),
-                String.valueOf(plan.getExtraStops()),
-                plan.isTruncated() ? UiText.SEARCH_TRUNCATED : "");
-        info.addPara(UiText.SNAPSHOT_NOTE, 3f);
-        String nextName = plan.getStopMarketName(index);
-        if (nextName != null && index < plan.getStopCount()) {
-            info.addPara(UiText.NEXT_STOP_NAME, 3f, h, nextName);
-        }
+                String.valueOf(plan.getExtraStops()));
     }
 
     private static void renderButtons(TooltipMakerAPI info, RoutePlan plan, boolean finished,
@@ -152,6 +133,7 @@ public final class TradeRouteCustomPanel {
             info.addPara(UiText.NO_NEXT_STOP, pad);
             return;
         }
+        info.addPara(UiText.JOB_QTY_NOTE, 3f);
         NextStopReadout.of(TradeRouteIntelPlugin.getInstance()).append(info, pad);
         info.addPara(UiText.PLANNED_TRAVEL,
                 3f, h,
@@ -270,6 +252,10 @@ public final class TradeRouteCustomPanel {
     }
 
     public static void appendPlanTotals(TooltipMakerAPI info, RoutePlan plan, float pad) {
+        appendPlanTotals(info, plan, pad, false);
+    }
+
+    public static void appendPlanTotals(TooltipMakerAPI info, RoutePlan plan, float pad, boolean details) {
         if (plan == null || plan.isEmpty()) {
             return;
         }
@@ -281,38 +267,38 @@ public final class TradeRouteCustomPanel {
                 Misc.getDGSCredits(plan.getNetProfit()),
                 String.format("%.1f", plan.getTotalDays()),
                 Misc.getDGSCredits(plan.getCreditsPerDay()));
+        if (!details) {
+            return;
+        }
         if (plan.getPositioningDays() > 0.05f) {
             info.addPara(UiText.POSITIONING_NOTE,
                     3f, Misc.getHighlightColor(),
                     String.format("%.1f", plan.getPositioningDays()));
         }
-        appendComputeTime(info, plan, 3f);
+        info.addPara(UiText.PROFIT_COMPARE_NOTE, 3f);
+        appendTruncationNote(info, plan, 3f);
     }
 
     public static String formatComputeTime(RoutePlan plan) {
         if (plan == null) {
-            return "0 ms";
+            return UiText.formatSeconds(0L);
         }
-        String ms = plan.getDisplayMs() + " ms";
-        return plan.isTruncated() ? ms + UiText.TRUNCATED_SUFFIX : ms;
+        return UiText.searchDuration(plan.getDisplayMs(), plan.isTruncated());
     }
 
     public static String formatComputeTimeDetail(RoutePlan plan) {
-        if (plan == null) {
-            return "0 ms";
-        }
-        if (plan.getSnapshotMs() <= 0L) {
-            return formatComputeTime(plan);
-        }
-        return UiText.computeMsDetail(plan.getDisplayMs(), plan.getSnapshotMs(),
-                plan.getComputeMs(), plan.isTruncated());
+        return formatComputeTime(plan);
     }
 
     public static void appendComputeTime(TooltipMakerAPI info, RoutePlan plan, float pad) {
-        if (info == null || plan == null) {
+        appendTruncationNote(info, plan, pad);
+    }
+
+    public static void appendTruncationNote(TooltipMakerAPI info, RoutePlan plan, float pad) {
+        if (info == null || plan == null || !plan.isTruncated()) {
             return;
         }
-        info.addPara(UiText.THIS_COMPUTE, pad, Misc.getHighlightColor(), formatComputeTimeDetail(plan));
+        info.addPara(UiText.SEARCH_TIME_UP, pad, Misc.getHighlightColor());
     }
 
     public static void appendTripSummary(TooltipMakerAPI info, TradeRouteIntelPlugin intel, float pad) {

@@ -118,13 +118,12 @@ final class CampaignHudPanel {
                 TradeRouteCustomPanel.appendTripSummary(info, intel, 2f);
             } else {
                 info.addPara(UiText.HUD_CPD, 3f, h,
-                        Misc.getDGSCredits(plan.getCreditsPerDay()),
-                        TradeRouteCustomPanel.formatComputeTime(plan));
+                        Misc.getDGSCredits(plan.getCreditsPerDay()));
                 NextStopReadout.of(intel).append(info, 2f);
             }
         } else if (plan != null && plan.isEmpty()) {
-            info.addPara(UiText.EMPTY_PLAN_HUD, 4f, h,
-                    TradeRouteCustomPanel.formatComputeTime(plan));
+            info.addPara(UiText.EMPTY_PLAN_SHORT, 4f, h,
+                    UiText.emptyReason(plan.getEmptyReason()));
         } else {
             info.addPara(UiText.HUD_NOT_CALCULATED, 4f, h);
         }
@@ -157,7 +156,6 @@ final class CampaignHudPanel {
             }
         } else if (plan != null && plan.isEmpty()) {
             info.addPara(UiText.EMPTY_PLAN_SHORT, 4f, neg, UiText.emptyReason(plan.getEmptyReason()));
-            TradeRouteCustomPanel.appendComputeTime(info, plan, 3f);
         } else {
             info.addPara(UiText.NOT_CALCULATED_SHORT, 4f, h);
         }
