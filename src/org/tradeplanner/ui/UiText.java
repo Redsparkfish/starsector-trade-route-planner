@@ -156,7 +156,7 @@ public final class UiText {
     public static final String CONFIG_LINE =
             "路线时间上限 %s 天，闭环 %s，额外停靠 %s，第一站范围 %s 光年，定位权重 %s，到站后自动买卖 %s，交易后导航 %s";
     public static final String RESERVE_LINE =
-            "补给保留 %s 天，燃料保留 %s 天（0 为不保留）";
+            "补给保留 %s 天，燃料保留 %s 光年（0 为不保留）";
     public static final String SETTINGS_SUMMARY = "%s，路线时间上限 %s 天，%s";
     public static final String FACTION_POLICY_LINE = "势力交易 %s。改完请重新计算。";
     public static final String PROFIT_COMPARE_NOTE = "未计入航行消耗的燃料和补给，适合比较路线。";
@@ -209,6 +209,10 @@ public final class UiText {
 
     public static String hudToggle(boolean visible) {
         return "切换HUD显示（当前：" + onOff(visible) + "）";
+    }
+
+    public static String hudToggled(boolean visible) {
+        return visible ? "战役HUD已显示" : "战役HUD已隐藏";
     }
 
     public static String loopKind(boolean loop) {
@@ -286,7 +290,7 @@ public final class UiText {
     public static String reserveLine(PlannerConfig cfg) {
         return String.format(RESERVE_LINE,
                 String.valueOf(cfg.getReserveSupplyDays()),
-                String.valueOf(cfg.getReserveFuelDays()));
+                String.valueOf(cfg.getReserveFuelLY()));
     }
 
     public static String factionPolicyLine(String policy) {

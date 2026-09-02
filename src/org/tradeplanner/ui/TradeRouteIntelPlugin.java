@@ -72,6 +72,9 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     private transient boolean showingSettings;
     private transient FactionTradeSettings factionDraft;
     private transient Float posTimeWeightDraft;
+    /** Same-id echo after {@code updateUIForItem} rebuilds the large description mid-click. */
+    private transient Object lastIntelButtonId;
+    private transient long lastIntelButtonMs;
 
     private RoutePlan lastPlan;
     private int nextWaypointIndex;
@@ -383,6 +386,9 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public void buttonPressConfirmed(Object buttonId, IntelUIAPI ui) {
+        if (isEchoIntelClick(buttonId)) {
+            return;
+        }
         if (BUTTON_REFRESH.equals(buttonId)) {
             refreshSnapshot();
             lastNavMessage = null;
@@ -424,6 +430,12 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         }
         if (BUTTON_TOGGLE_HUD.equals(buttonId)) {
             toggleHudVisible();
+            lastNavMessage = UiText.hudToggled(isHudVisible());
+            try {
+                Global.getSector().getCampaignUI().addMessage(
+                        lastNavMessage, Misc.getHighlightColor());
+            } catch (Exception ignored) {
+            }
             ui.updateUIForItem(this);
             return;
         }
@@ -437,6 +449,24 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
             return;
         }
         super.buttonPressConfirmed(buttonId, ui);
+    }
+
+    /**
+     * {@code updateUIForItem} rebuilds the large description while the mouse is still down,
+     * so the same click hits the replacement button. A two-state control such as HUD toggle
+     * would flip twice and look like a no-op.
+     */
+    private boolean isEchoIntelClick(Object buttonId) {
+        if (buttonId == null) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (buttonId.equals(lastIntelButtonId) && now - lastIntelButtonMs < 350L) {
+            return true;
+        }
+        lastIntelButtonId = buttonId;
+        lastIntelButtonMs = now;
+        return false;
     }
 
     @Override

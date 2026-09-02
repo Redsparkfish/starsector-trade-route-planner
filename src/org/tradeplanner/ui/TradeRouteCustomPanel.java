@@ -141,25 +141,13 @@ public final class TradeRouteCustomPanel {
     private static void addIntelButtonRow(TooltipMakerAPI info, float width, float pad,
                                           String leftLabel, String leftId,
                                           String rightLabel, String rightId) {
-        float gap = 4f;
         float height = 24f;
-        if (rightLabel == null || rightId == null) {
-            info.addButton(leftLabel, leftId, width, height, pad);
-            return;
+        // Nested CustomPanel strips often never reach buttonPressConfirmed. Stack on the
+        // intel TooltipMaker so clicks go through the documented intel button path.
+        info.addButton(leftLabel, leftId, width, height, pad);
+        if (rightLabel != null && rightId != null) {
+            info.addButton(rightLabel, rightId, width, height, 3f);
         }
-        CustomPanelAPI strip = Global.getSettings().createCustom(width, height, null);
-        float bw = (width - gap) / 2f;
-        addIntelStripButton(strip, leftLabel, leftId, 0f, bw, height);
-        addIntelStripButton(strip, rightLabel, rightId, bw + gap, bw, height);
-        info.addCustom(strip, pad);
-    }
-
-    private static void addIntelStripButton(CustomPanelAPI strip, String label, String id,
-                                            float x, float width, float height) {
-        TooltipMakerAPI t = strip.createUIElement(width, height, false);
-        t.addButton(label, id, width, height - 2f, 0f);
-        strip.addUIElement(t).inTL(x, 0f);
-        strip.updateUIElementSizeAndMakeItProcessInput(t);
     }
 
     private static void renderNextStopSheet(TooltipMakerAPI info, RoutePlan plan, int index,

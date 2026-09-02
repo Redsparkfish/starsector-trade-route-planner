@@ -11,6 +11,6 @@ tradeRoutePlanner,assumeApiPriceExcludesTariff,开市报价不含关税,Boolean,
 tradeRoutePlanner,autoTradeOnArrival,到站后自动买卖,Boolean,false,,"开启后，抵达当前下一站会按作业单自动成交并离开据点。港务局拦截、暗中停靠对不上开市、战斗等情况会停止并提示。不会代飞。自己动手交易时请保持关闭。",,,规划
 tradeRoutePlanner,autoNavAfterTrade,交易完毕后自动前往下一站,Boolean,false,,"开启后，本站买卖成功或确认无需买卖并翻页后，自动把导航设到新的下一站。不会一次铺完整条路线。和到站后自动买卖一起开，等于半自动跑完这条路线。",,,规划
 tradeRoutePlanner,reserveSupplyDays,补给保留（天）,Int,100,,"补给可以正常参与贸易，但不会主动卖到低于这个天数的保留量。如果已经低于保留量，到站时会尽量补回来。填 0 表示不保留。",0,999,规划
-tradeRoutePlanner,reserveFuelDays,燃料保留（天）,Int,100,,"燃料主要按航行需求保留，不作为普通投机商品卖掉。出航补油时，会尽量在航行消耗之外再留这么多天的用量。填 0 表示不保留。",0,999,规划
+tradeRoutePlanner,reserveFuelLY,燃料保留（光年）,Int,100,,"燃料按超空间每光年油耗保留。保留量以内不卖；超出部分可以作为贸易商品买卖。出航补油时，会尽量在航行消耗之外再留这么多光年的用量。填 0 表示不保留。",0,999,规划
 tradeRoutePlanner,maxStartRangeLY,第一站范围（光年）,Int,10,,"只把这个距离以内的市场当作第一站。和你处于同一星系的市场也会考虑。这个限制只影响第一站，后续路线可以前往更远的市场。",1,200,规划
 tradeRoutePlanner,posTimeWeight,定位权重 alpha,Double,0.5,,"规划时会考虑飞到第一站要花多少时间。0 更看重路线本身的收益；0.5 是默认值，兼顾前往第一站的距离和之后的收益；1 会完整计入前往第一站的时间。普通情况下保持默认即可。当前存档也可以在情报的规划设置里改。",0,1,规划

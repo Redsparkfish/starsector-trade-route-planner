@@ -189,7 +189,7 @@ JumpPointAPI jp = Misc.findNearestJumpPointTo(entity);
 
 途中加油：`F_max` 不是一次扣完全程。货舱可能要留燃料。规划器至少保证「跳到下一站油够」，能加油再放大搜索。
 
-补给/燃料保留（`reserveSupplyDays` / `reserveFuelDays`，默认 100）：不把保留量拿去卖掉。燃料天数用 `Misc.getFuelPerDay(fleet, burn)`（超空间日耗折算），不是星系内日耗。保留量封顶油箱。补给是经济大宗，规划可以买卖；短少时仍预留货舱并到站补到保留线。
+补给/燃料保留（`reserveSupplyDays` 默认 100 天 / `reserveFuelLY` 默认 100 光年）：不把保留量拿去卖掉。燃料按 `getFuelCostPerLightYear() × 光年`，封顶油箱；超出保留的部分可以走背包（油箱）买卖。补给是经济大宗，规划可以买卖；短少时仍预留货舱并到站补到保留线。
 
 ---
 

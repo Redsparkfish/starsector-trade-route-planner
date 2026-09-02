@@ -507,16 +507,6 @@ public final class StopExecutor {
             int did = sellOne(player, shelf, market, action, black, cfg, sold);
             lines.add(UiText.sellFill(action.getName(), tag, action.getQuantity(), did));
         }
-        for (TradeAction action : plan.buysAtStop(stopIndex)) {
-            if (Commodities.FUEL.equals(action.getCommodityId())) {
-                continue;
-            }
-            if (action.buyOnBlack(wantBlack) != black) {
-                continue;
-            }
-            int did = buyOne(player, shelf, market, action, black, cfg, bought);
-            lines.add(UiText.buyFill(action.getName(), tag, action.getQuantity(), did));
-        }
         int fuelNeed = restockQty(player, Commodities.FUEL, fuelGoal);
         if (fuelNeed > 0) {
             TradeAction fuel = new TradeAction(Commodities.FUEL, UiText.COMMODITY_FUEL, fuelNeed, 0f, 0f, 0f);
@@ -524,6 +514,13 @@ public final class StopExecutor {
             if (did > 0) {
                 lines.add(UiText.buyFuelFill(tag, did));
             }
+        }
+        for (TradeAction action : plan.buysAtStop(stopIndex)) {
+            if (action.buyOnBlack(wantBlack) != black) {
+                continue;
+            }
+            int did = buyOne(player, shelf, market, action, black, cfg, bought);
+            lines.add(UiText.buyFill(action.getName(), tag, action.getQuantity(), did));
         }
         int supplyNeed = restockQty(player, Commodities.SUPPLIES, supplyGoal);
         if (supplyNeed > 0) {

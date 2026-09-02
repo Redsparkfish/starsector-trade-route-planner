@@ -1,5 +1,7 @@
 package org.tradeplanner.model;
 
+import com.fs.starfarer.api.impl.campaign.ids.Commodities;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -61,5 +63,16 @@ public final class CargoLoad {
 
     public float getGrossProfit() {
         return sellRevenue - buyCost;
+    }
+
+    /** Fuel packed as a trade good (tank, not cargo). */
+    public int getFuelQty() {
+        int qty = 0;
+        for (TradeAction item : items) {
+            if (item != null && Commodities.FUEL.equals(item.getCommodityId())) {
+                qty += item.getQuantity();
+            }
+        }
+        return qty;
     }
 }

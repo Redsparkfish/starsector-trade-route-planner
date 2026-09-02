@@ -5,12 +5,12 @@ import com.fs.starfarer.api.campaign.CampaignFleetAPI;
 import com.fs.starfarer.api.campaign.CargoAPI;
 import com.fs.starfarer.api.campaign.econ.CommoditySpecAPI;
 import com.fs.starfarer.api.impl.campaign.ids.Commodities;
-import com.fs.starfarer.api.util.Misc;
 import org.tradeplanner.config.PlannerConfig;
 
 /**
  * Operational supplies/fuel that must not be sold (and should be topped up when buying).
- * Fuel "days" use hyperspace burn via {@link Misc#getFuelPerDay} — there is no vanilla daily fuel.
+ * Fuel reserve is in hyperspace light-years via {@code getFuelCostPerLightYear()}.
+ * Excess above the floor may be bought/sold as a trade good (tank, not cargo).
  */
 public final class LogisticsReserve {
 
@@ -28,15 +28,15 @@ public final class LogisticsReserve {
         return (int) Math.ceil(suppliesPerDay * days);
     }
 
-    public static int fuelFloor(PlannerConfig cfg, float fuelPerDay, float fuelMax) {
+    public static int fuelFloor(PlannerConfig cfg, float fuelPerLY, float fuelMax) {
         if (cfg == null) {
             return 0;
         }
-        int days = cfg.getReserveFuelDays();
-        if (days <= 0 || fuelPerDay <= 0.0001f) {
+        int ly = cfg.getReserveFuelLY();
+        if (ly <= 0 || fuelPerLY <= 0.0001f) {
             return 0;
         }
-        int qty = (int) Math.ceil(fuelPerDay * days);
+        int qty = (int) Math.ceil(fuelPerLY * ly);
         if (fuelMax > 0.0001f) {
             qty = Math.min(qty, (int) Math.floor(fuelMax));
         }
@@ -48,7 +48,15 @@ public final class LogisticsReserve {
     }
 
     public static int fuelFloor(PlannerConfig cfg, FleetState fleet) {
-        return fleet == null ? 0 : fuelFloor(cfg, fleet.getFuelPerDay(), fleet.getFuelMax());
+        return fleet == null ? 0 : fuelFloor(cfg, fleet.getFuelPerLightYear(), fleet.getFuelMax());
+    }
+
+    /** Tank room above the reserve that can be used to carry fuel as a trade good. */
+    public static float tradeFuelRoom(PlannerConfig cfg, FleetState fleet) {
+        if (fleet == null) {
+            return 0f;
+        }
+        return Math.max(0f, fleet.getFuelMax() - fuelFloor(cfg, fleet));
     }
 
     public static int supplyFloorLive(PlannerConfig cfg, CampaignFleetAPI fleet) {
@@ -62,17 +70,18 @@ public final class LogisticsReserve {
         if (fleet == null) {
             return 0;
         }
-        float perDay = 0f;
+        float perLY = 0f;
         try {
-            float burn = fleet.getFleetData() == null ? 1f : fleet.getFleetData().getBurnLevel();
-            perDay = Misc.getFuelPerDay(fleet, burn);
+            if (fleet.getLogistics() != null) {
+                perLY = fleet.getLogistics().getFuelCostPerLightYear();
+            }
         } catch (Exception ignored) {
         }
         float max = 0f;
         if (fleet.getCargo() != null) {
             max = fleet.getCargo().getMaxFuel();
         }
-        return fuelFloor(cfg, perDay, max);
+        return fuelFloor(cfg, perLY, max);
     }
 
     public static float supplyCargoSpace() {

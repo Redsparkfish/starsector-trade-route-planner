@@ -11,7 +11,7 @@
 		"autoTradeOnArrival": false,
 		"autoNavAfterTrade": false,
 		"reserveSupplyDays": 100,
-		"reserveFuelDays": 100,
+		"reserveFuelLY": 100,
 		"maxStartRangeLY": 10,
 		"posTimeWeight": 0.5
 	},

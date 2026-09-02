@@ -28,12 +28,19 @@ final class CampaignHudPanel {
     static final float HEIGHT_COLLAPSED = 140f;
     static final float HEIGHT_EXPANDED = 280f;
     private static final float BUILD_HEIGHT = 720f;
-    private static final float BOTTOM_PAD = 6f;
+    /** Extra space below the last row; button chrome sits a few pixels outside the layout box. */
+    private static final float BOTTOM_PAD = 14f;
     private static final float MIN_HEIGHT = 72f;
+    /**
+     * TooltipMakerAPI insets content a few pixels. Buttons also draw a 2–3px frame outside
+     * the requested size. Keep inner rows and chrome inside that combined margin.
+     */
+    private static final float CONTENT_INSET = 10f;
+    private static final float CHROME_PAD = 8f;
     /** Gap from the right edge so the sheet sits immediately left of the minimap. */
     static final float PAD_RIGHT = 248f;
     static final float PAD_BOTTOM = 12f;
-    static final float TITLE_H = 22f;
+    static final float TITLE_H = 24f;
 
     static final String BTN_CALC = "hud_calc";
     static final String BTN_NAV = "hud_nav";
@@ -110,7 +117,7 @@ final class CampaignHudPanel {
                                        TradeRouteIntelPlugin intel, float width) {
         Color h = Misc.getHighlightColor();
         RoutePlan plan = intel.getLastPlan();
-        float inner = width - 8f;
+        float inner = width - CONTENT_INSET * 2f;
         addTitleBar(info, plugin, true, width);
         if (plan != null && !plan.isEmpty()) {
             if (intel.isTripFinished()) {
@@ -135,7 +142,7 @@ final class CampaignHudPanel {
         Color pos = Misc.getPositiveHighlightColor();
         Color neg = Misc.getNegativeHighlightColor();
         RoutePlan plan = intel.getLastPlan();
-        float inner = width - 8f;
+        float inner = width - CONTENT_INSET * 2f;
 
         addTitleBar(info, plugin, false, width);
 
@@ -166,17 +173,17 @@ final class CampaignHudPanel {
     }
 
     private static void addTitleBar(TooltipMakerAPI info, HudPlugin plugin, boolean collapsed, float width) {
-        CustomPanelAPI bar = Global.getSettings().createCustom(width, TITLE_H, null);
-        float btn = 18f;
+        float barW = Math.max(64f, width - 4f);
+        CustomPanelAPI bar = Global.getSettings().createCustom(barW, TITLE_H, null);
+        float btn = 16f;
         float gap = 3f;
-        float pad = 4f;
-        float closeX = width - pad - btn;
+        float closeX = barW - CHROME_PAD - btn;
         float minX = closeX - gap - btn;
-        float titleW = Math.max(48f, minX - pad);
+        float titleW = Math.max(48f, minX - CHROME_PAD);
         TooltipMakerAPI title = bar.createUIElement(titleW, TITLE_H, false);
         title.setParaFontVictor14();
-        title.addPara(UiText.TITLE, 3f);
-        bar.addUIElement(title).inTL(pad, 0f);
+        title.addPara(UiText.TITLE, 4f);
+        bar.addUIElement(title).inTL(CHROME_PAD, 1f);
         addChromeButton(bar, plugin,
                 collapsed ? UiText.BTN_HUD_EXPAND : UiText.BTN_HUD_COLLAPSE, BTN_MIN, minX, btn);
         addChromeButton(bar, plugin, UiText.BTN_HUD_CLOSE, BTN_CLOSE, closeX, btn);
@@ -187,9 +194,9 @@ final class CampaignHudPanel {
                                         String label, String id, float x, float size) {
         TooltipMakerAPI t = bar.createUIElement(size, TITLE_H, false);
         t.setButtonFontVictor10();
-        ButtonAPI button = t.addButton(label, id, size, size, 1f);
+        ButtonAPI button = t.addButton(label, id, size, size, 2f);
         plugin.track(button, id);
-        bar.addUIElement(t).inTL(x, 1f);
+        bar.addUIElement(t).inTL(x, 3f);
         bar.updateUIElementSizeAndMakeItProcessInput(t);
     }
 
@@ -220,6 +227,7 @@ final class CampaignHudPanel {
             addStripButton(row2, plugin, UiText.BTN_DETAIL, BTN_DETAIL, 0f, inner);
         }
         info.addCustom(row2, 3f);
+        info.addSpacer(4f);
     }
 
     private static void addButtonRow(TooltipMakerAPI info, HudPlugin plugin,
@@ -249,15 +257,17 @@ final class CampaignHudPanel {
             addStripButton(strip2, plugin, UiText.BTN_DETAIL_SHORT, BTN_DETAIL, 0f, inner);
         }
         info.addCustom(strip2, 3f);
+        info.addSpacer(4f);
     }
 
     private static float addStripButton(CustomPanelAPI strip, HudPlugin plugin,
                                         String label, String id, float x, float width) {
+        float btnW = Math.max(12f, width - 2f);
         TooltipMakerAPI t = strip.createUIElement(width, 22f, false);
         t.setButtonFontVictor10();
-        ButtonAPI button = t.addButton(label, id, width, 20f, 0f);
+        ButtonAPI button = t.addButton(label, id, btnW, 18f, 1f);
         plugin.track(button, id);
-        strip.addUIElement(t).inTL(x, 0f);
+        strip.addUIElement(t).inTL(x, 1f);
         strip.updateUIElementSizeAndMakeItProcessInput(t);
         return width;
     }

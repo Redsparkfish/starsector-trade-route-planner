@@ -60,9 +60,9 @@ final class LunaConfigBridge {
         if (supplyDays != null) {
             cfg.setReserveSupplyDays(supplyDays);
         }
-        Integer fuelDays = LunaSettings.getInt(PlannerConfig.MOD_ID, "reserveFuelDays");
-        if (fuelDays != null) {
-            cfg.setReserveFuelDays(fuelDays);
+        Integer fuelLy = LunaSettings.getInt(PlannerConfig.MOD_ID, "reserveFuelLY");
+        if (fuelLy != null) {
+            cfg.setReserveFuelLY(fuelLy);
         }
         Integer startRange = LunaSettings.getInt(PlannerConfig.MOD_ID, "maxStartRangeLY");
         if (startRange != null) {

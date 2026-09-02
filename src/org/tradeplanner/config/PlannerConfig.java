@@ -38,9 +38,11 @@ public final class PlannerConfig {
     public static final boolean DEFAULT_AUTO_TRADE_ON_ARRIVAL = false;
     public static final boolean DEFAULT_AUTO_NAV_AFTER_TRADE = false;
     public static final int DEFAULT_RESERVE_SUPPLY_DAYS = 100;
-    public static final int DEFAULT_RESERVE_FUEL_DAYS = 100;
+    public static final int DEFAULT_RESERVE_FUEL_LY = 100;
     public static final int MIN_RESERVE_DAYS = 0;
     public static final int MAX_RESERVE_DAYS = 999;
+    public static final int MIN_RESERVE_FUEL_LY = 0;
+    public static final int MAX_RESERVE_FUEL_LY = 999;
     public static final int DEFAULT_MAX_START_RANGE_LY = 10;
     public static final int MIN_START_RANGE_LY = 1;
     public static final int MAX_START_RANGE_LY = 200;
@@ -64,7 +66,7 @@ public final class PlannerConfig {
     private boolean autoTradeOnArrival = DEFAULT_AUTO_TRADE_ON_ARRIVAL;
     private boolean autoNavAfterTrade = DEFAULT_AUTO_NAV_AFTER_TRADE;
     private int reserveSupplyDays = DEFAULT_RESERVE_SUPPLY_DAYS;
-    private int reserveFuelDays = DEFAULT_RESERVE_FUEL_DAYS;
+    private int reserveFuelLY = DEFAULT_RESERVE_FUEL_LY;
     private int maxStartRangeLy = DEFAULT_MAX_START_RANGE_LY;
     private float posTimeWeight = DEFAULT_POS_TIME_WEIGHT;
 
@@ -113,7 +115,11 @@ public final class PlannerConfig {
             autoTradeOnArrival = obj.optBoolean("autoTradeOnArrival", DEFAULT_AUTO_TRADE_ON_ARRIVAL);
             autoNavAfterTrade = obj.optBoolean("autoNavAfterTrade", DEFAULT_AUTO_NAV_AFTER_TRADE);
             reserveSupplyDays = obj.optInt("reserveSupplyDays", DEFAULT_RESERVE_SUPPLY_DAYS);
-            reserveFuelDays = obj.optInt("reserveFuelDays", DEFAULT_RESERVE_FUEL_DAYS);
+            if (obj.has("reserveFuelLY")) {
+                reserveFuelLY = obj.optInt("reserveFuelLY", DEFAULT_RESERVE_FUEL_LY);
+            } else {
+                reserveFuelLY = obj.optInt("reserveFuelDays", DEFAULT_RESERVE_FUEL_LY);
+            }
             maxStartRangeLy = obj.optInt("maxStartRangeLY", DEFAULT_MAX_START_RANGE_LY);
             posTimeWeight = (float) obj.optDouble("posTimeWeight", DEFAULT_POS_TIME_WEIGHT);
         } catch (Exception e) {
@@ -136,7 +142,7 @@ public final class PlannerConfig {
             openMarketFactionIds = parseFactionList(DEFAULT_OPEN_MARKET_FACTIONS);
         }
         reserveSupplyDays = clampInt(reserveSupplyDays, MIN_RESERVE_DAYS, MAX_RESERVE_DAYS);
-        reserveFuelDays = clampInt(reserveFuelDays, MIN_RESERVE_DAYS, MAX_RESERVE_DAYS);
+        reserveFuelLY = clampInt(reserveFuelLY, MIN_RESERVE_FUEL_LY, MAX_RESERVE_FUEL_LY);
         maxStartRangeLy = clampInt(maxStartRangeLy, MIN_START_RANGE_LY, MAX_START_RANGE_LY);
         posTimeWeight = clampFloat(posTimeWeight, MIN_POS_TIME_WEIGHT, MAX_POS_TIME_WEIGHT);
     }
@@ -189,8 +195,8 @@ public final class PlannerConfig {
         this.reserveSupplyDays = reserveSupplyDays;
     }
 
-    void setReserveFuelDays(int reserveFuelDays) {
-        this.reserveFuelDays = reserveFuelDays;
+    void setReserveFuelLY(int reserveFuelLY) {
+        this.reserveFuelLY = reserveFuelLY;
     }
 
     void setMaxStartRangeLy(int maxStartRangeLy) {
@@ -313,11 +319,11 @@ public final class PlannerConfig {
     }
 
     /**
-     * Days of hyperspace fuel (at current burn) kept out of trade. 0 disables.
-     * Converted with {@code Misc.getFuelPerDay}; not a vanilla "daily fuel" cost.
+     * Hyperspace light-years of fuel kept out of trade. 0 disables.
+     * Converted with {@code FleetLogisticsAPI.getFuelCostPerLightYear()}.
      */
-    public int getReserveFuelDays() {
-        return reserveFuelDays;
+    public int getReserveFuelLY() {
+        return reserveFuelLY;
     }
 
     /** Hyperspace LY from fleet to first market A. Same-system starts are always in range. */

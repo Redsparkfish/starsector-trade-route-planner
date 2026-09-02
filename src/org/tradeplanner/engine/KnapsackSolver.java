@@ -1,6 +1,7 @@
 package org.tradeplanner.engine;
 
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
+import com.fs.starfarer.api.impl.campaign.ids.Commodities;
 import org.tradeplanner.config.PlannerConfig;
 import org.tradeplanner.config.TradeAccess;
 import org.tradeplanner.data.CommodityTradeInfo;
@@ -22,7 +23,7 @@ import java.util.Set;
  * Bounded knapsack for one directed pair: buy at A, sell at B.
  * When both submarkets are allowed, fills black first then open with leftover cargo/cash.
  * Quantity is limited by source shelf, cargo, cash, and positive batch-quote profit.
- * Fuel stays operational (tank, not cargo). Supplies can be packed as cargo trade goods;
+ * Fuel uses the tank (not cargo) and is packed from leftover cash after cargo goods;
  * execution still will not sell below the reserve floor.
  */
 public final class KnapsackSolver {
@@ -32,11 +33,16 @@ public final class KnapsackSolver {
 
     public static CargoLoad solve(MarketSnapshot buyAt, MarketSnapshot sellAt,
                                   float cargoLeft, float cash, PlannerConfig config) {
+        return solve(buyAt, sellAt, cargoLeft, cash, 0f, config);
+    }
+
+    public static CargoLoad solve(MarketSnapshot buyAt, MarketSnapshot sellAt,
+                                  float cargoLeft, float cash, float fuelRoom, PlannerConfig config) {
         boolean blackBuy = canBlack(buyAt, config);
         boolean openBuy = canOpen(buyAt, config);
         boolean blackSell = canBlack(sellAt, config);
         boolean openSell = canOpen(sellAt, config);
-        return solve(buyAt, sellAt, cargoLeft, cash,
+        return solve(buyAt, sellAt, cargoLeft, cash, fuelRoom,
                 blackBuy, openBuy, blackSell, openSell, config);
     }
 
@@ -45,19 +51,22 @@ public final class KnapsackSolver {
                                   float cargoLeft, float cash,
                                   boolean blackBuy, boolean blackSell,
                                   PlannerConfig config) {
-        return solve(buyAt, sellAt, cargoLeft, cash,
+        return solve(buyAt, sellAt, cargoLeft, cash, 0f,
                 blackBuy, !blackBuy, blackSell, !blackSell, config);
     }
 
     static CargoLoad solve(MarketSnapshot buyAt, MarketSnapshot sellAt,
-                           float cargoLeft, float cash,
+                           float cargoLeft, float cash, float fuelRoom,
                            boolean canBlackBuy, boolean canOpenBuy,
                            boolean canBlackSell, boolean canOpenSell,
                            PlannerConfig config) {
         if (buyAt == null || sellAt == null) {
             return CargoLoad.EMPTY;
         }
-        if (cargoLeft <= 0.01f || cash <= 0f) {
+        if (cash <= 0f) {
+            return CargoLoad.EMPTY;
+        }
+        if (cargoLeft <= 0.01f && fuelRoom <= 0.05f) {
             return CargoLoad.EMPTY;
         }
         if (buyAt.getMarketId().equals(sellAt.getMarketId())) {
@@ -75,6 +84,7 @@ public final class KnapsackSolver {
         List<TradeAction> taken = new ArrayList<>();
         float cargo = cargoLeft;
         float money = cash;
+        float tank = Math.max(0f, fuelRoom);
 
         if (canBlackBuy && (canBlackSell || canOpenSell)) {
             boolean sellBlack = canBlackSell;
@@ -96,6 +106,31 @@ public final class KnapsackSolver {
                 FillResult fill = packPass(buyAt, buyMarket, sellMarket, cargo, money, false, false,
                         buyOpenLeft, config);
                 taken.addAll(fill.actions);
+                cargo = fill.cargo;
+                money = fill.cash;
+            }
+        }
+        if (tank > 0.05f && money > 0f) {
+            if (canBlackBuy && (canBlackSell || canOpenSell)) {
+                FillResult fill = packFuelPass(buyAt, buyMarket, sellMarket, money, tank, true,
+                        canBlackSell, buyBlackLeft, config);
+                taken.addAll(fill.actions);
+                money = fill.cash;
+                tank = fill.fuelRoom;
+            }
+            if (canOpenBuy && tank > 0.05f && money > 0f) {
+                if (canBlackSell) {
+                    FillResult fill = packFuelPass(buyAt, buyMarket, sellMarket, money, tank, false,
+                            true, buyOpenLeft, config);
+                    taken.addAll(fill.actions);
+                    money = fill.cash;
+                    tank = fill.fuelRoom;
+                }
+                if (canOpenSell && tank > 0.05f && money > 0f) {
+                    FillResult fill = packFuelPass(buyAt, buyMarket, sellMarket, money, tank, false,
+                            false, buyOpenLeft, config);
+                    taken.addAll(fill.actions);
+                }
             }
         }
         return CargoLoad.of(taken);
@@ -184,6 +219,64 @@ public final class KnapsackSolver {
                 break;
             }
         }
+        return out;
+    }
+
+    /**
+     * Fuel sits in the tank, not cargo. Packed from leftover cash after cargo goods so it
+     * does not steal hold space. Qty is shelf + remaining tank room above the reserve.
+     */
+    private static FillResult packFuelPass(MarketSnapshot buyAt, MarketAPI buyMarket, MarketAPI sellMarket,
+                                           float cash, float fuelRoom,
+                                           boolean blackBuy, boolean blackSell,
+                                           Map<String, Integer> buyLeft,
+                                           PlannerConfig config) {
+        FillResult out = new FillResult();
+        out.cash = cash;
+        out.fuelRoom = fuelRoom;
+        if (buyAt == null || buyLeft == null || fuelRoom <= 0.05f || cash <= 0f) {
+            return out;
+        }
+        CommodityTradeInfo fuelRow = null;
+        for (CommodityTradeInfo row : buyAt.getCommodities()) {
+            if (row.isFuel() || Commodities.FUEL.equals(row.getId())) {
+                fuelRow = row;
+                break;
+            }
+        }
+        if (fuelRow == null) {
+            return out;
+        }
+        if (!blackBuy && fuelRow.isIllegalOnOpenMarket()) {
+            return out;
+        }
+        if (!blackSell && sellMarket.isIllegal(fuelRow.getId())) {
+            return out;
+        }
+        int qtyCap = minPositive(remaining(buyLeft, fuelRow.getId()), (int) Math.floor(fuelRoom));
+        if (qtyCap <= 0) {
+            return out;
+        }
+        int affordable = maxAffordable(buyMarket, fuelRow.getId(), qtyCap, cash, blackBuy, config);
+        if (affordable <= 0) {
+            return out;
+        }
+        int qty = bestQtyFitting(buyMarket, sellMarket, fuelRow.getId(), affordable,
+                fuelRoom, cash, 1f, blackBuy, blackSell, config);
+        if (qty <= 0) {
+            return out;
+        }
+        float buy = PriceQuoter.quoteBuy(buyMarket, fuelRow.getId(), qty, blackBuy, config);
+        float sell = PriceQuoter.quoteSell(sellMarket, fuelRow.getId(), qty, blackSell, config);
+        float profit = sell - buy;
+        if (profit <= 0f || buy > cash + 0.01f) {
+            return out;
+        }
+        out.actions.add(new TradeAction(fuelRow.getId(), fuelRow.getName(), qty, 0f, buy, sell,
+                Boolean.valueOf(blackBuy), Boolean.valueOf(blackSell)));
+        out.cash -= buy;
+        out.fuelRoom -= qty;
+        consume(buyLeft, fuelRow.getId(), qty);
         return out;
     }
 
@@ -370,5 +463,6 @@ public final class KnapsackSolver {
         final List<TradeAction> actions = new ArrayList<>();
         float cargo;
         float cash;
+        float fuelRoom;
     }
 }

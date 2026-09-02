@@ -5,7 +5,6 @@ import com.fs.starfarer.api.campaign.CampaignFleetAPI;
 import com.fs.starfarer.api.campaign.CargoAPI;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
 import com.fs.starfarer.api.fleet.FleetLogisticsAPI;
-import com.fs.starfarer.api.util.Misc;
 
 /**
  * Player fleet snapshot at calculate/refresh time. Fuel cost is per light-year, not per day.
@@ -23,15 +22,13 @@ public final class FleetState {
     private final float burnLevel;
     private final float suppliesPerDay;
     private final float fuelPerLightYear;
-    private final float fuelPerDay;
     private final boolean inHyperspace;
     private final boolean transponderOn;
     private final String locationName;
 
     private FleetState(float credits, float cargoMax, float cargoUsed, float cargoLeft,
                        float fuel, float fuelMax, float supplies, float supplyCargoSpace,
-                       float burnLevel, float suppliesPerDay,
-                       float fuelPerLightYear, float fuelPerDay,
+                       float burnLevel, float suppliesPerDay, float fuelPerLightYear,
                        boolean inHyperspace, boolean transponderOn,
                        String locationName) {
         this.credits = credits;
@@ -45,7 +42,6 @@ public final class FleetState {
         this.burnLevel = burnLevel;
         this.suppliesPerDay = suppliesPerDay;
         this.fuelPerLightYear = fuelPerLightYear;
-        this.fuelPerDay = fuelPerDay;
         this.inHyperspace = inHyperspace;
         this.transponderOn = transponderOn;
         this.locationName = locationName;
@@ -59,11 +55,6 @@ public final class FleetState {
                 ? "?"
                 : fleet.getContainingLocation().getName();
         float burn = fleet.getFleetData().getBurnLevel();
-        float fuelPerDay = 0f;
-        try {
-            fuelPerDay = Misc.getFuelPerDay(fleet, burn);
-        } catch (Exception ignored) {
-        }
         return new FleetState(
                 cargo.getCredits().get(),
                 cargo.getMaxCapacity(),
@@ -76,7 +67,6 @@ public final class FleetState {
                 burn,
                 logistics.getTotalSuppliesPerDay(),
                 logistics.getFuelCostPerLightYear(),
-                fuelPerDay,
                 fleet.isInHyperspace(),
                 fleet.isTransponderOn(),
                 locName
@@ -133,11 +123,6 @@ public final class FleetState {
 
     public float getFuelPerLightYear() {
         return fuelPerLightYear;
-    }
-
-    /** Hyperspace fuel per day at current burn ({@link Misc#getFuelPerDay}). */
-    public float getFuelPerDay() {
-        return fuelPerDay;
     }
 
     public boolean isInHyperspace() {

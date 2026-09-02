@@ -349,9 +349,6 @@ public final class RouteOptimizationEngine {
         }
         float hint = 0f;
         for (CommodityTradeInfo buy : from.getCommodities()) {
-            if (buy.isFuel()) {
-                continue;
-            }
             int cap = buy.getEstimatedBuyMax();
             if (cap <= 0) {
                 continue;
@@ -362,7 +359,9 @@ public final class RouteOptimizationEngine {
                 continue;
             }
             float space = buy.getCargoSpace();
-            if (space <= 0.0001f) {
+            if (buy.isFuel()) {
+                space = 1f;
+            } else if (space <= 0.0001f) {
                 continue;
             }
             int excess = Math.max(0, buy.getExcessQty());
@@ -674,7 +673,8 @@ public final class RouteOptimizationEngine {
         }
         float space = fleet.getSupplyCargoSpace();
         float cargoAfterRestock = Math.max(0f, from.cargoFree - supply.qty * space);
-        CargoLoad load = packForHop(origin, dest, cargoAfterRestock, cashAfterOps);
+        float fuelRoom = Math.max(0f, fleet.getFuelMax() - fuelReady);
+        CargoLoad load = packForHop(origin, dest, cargoAfterRestock, cashAfterOps, fuelRoom);
         if (load.isEmpty() || load.getGrossProfit() <= 0f) {
             if (!returning) {
                 return null;
@@ -728,7 +728,8 @@ public final class RouteOptimizationEngine {
         }
         quotedPairs.add(pairKey(from, to));
         graphQuotes++;
-        CargoLoad load = KnapsackSolver.solve(from, to, cargo, cash, config);
+        CargoLoad load = KnapsackSolver.solve(from, to, cargo, cash,
+                LogisticsReserve.tradeFuelRoom(config, fleet), config);
         if (load.isEmpty() || load.getGrossProfit() <= 0f) {
             return null;
         }
@@ -743,14 +744,16 @@ public final class RouteOptimizationEngine {
      * Reuse a graph pack when the hop still has enough cargo and cash to buy it.
      * Richer leftover can keep the cached list (feasible, maybe a bit short of a re-solve).
      */
-    private CargoLoad packForHop(MarketSnapshot from, MarketSnapshot to, float cargo, float cash) {
+    private CargoLoad packForHop(MarketSnapshot from, MarketSnapshot to, float cargo, float cash,
+                                 float fuelRoom) {
         String key = pairKey(from, to);
         QuotedPack cached = packCache.get(key);
         if (cached != null && cached.load.getCargoUsed() <= cargo + 0.01f
-                && cached.load.getBuyCost() <= cash + 0.01f) {
+                && cached.load.getBuyCost() <= cash + 0.01f
+                && cached.load.getFuelQty() <= fuelRoom + 0.01f) {
             return cached.load;
         }
-        CargoLoad load = KnapsackSolver.solve(from, to, cargo, cash, config);
+        CargoLoad load = KnapsackSolver.solve(from, to, cargo, cash, fuelRoom, config);
         if (!load.isEmpty() && load.getGrossProfit() > 0f) {
             packCache.put(key, new QuotedPack(load));
         }
