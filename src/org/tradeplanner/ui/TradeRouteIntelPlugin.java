@@ -47,6 +47,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     public static final String BUTTON_ARRIVE = "trp_arrive";
     public static final String BUTTON_EXECUTE = "trp_execute";
     public static final String BUTTON_CLEAR = "trp_clear";
+    public static final String BUTTON_TOGGLE_HUD = "trp_toggle_hud";
     public static final String BUTTON_SETTINGS = "trp_settings";
     public static final String BUTTON_SETTINGS_OK = "trp_settings_ok";
     public static final String BUTTON_SETTINGS_CANCEL = "trp_settings_cancel";
@@ -76,6 +77,8 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     private int nextWaypointIndex;
     private String lastNavMessage;
     private boolean hudCollapsed;
+    /** Per-save; null or true shows the campaign-map job sheet. Null means old saves. */
+    private Boolean hudVisible;
     /** Campaign clock at last successful 「计算新路线」. */
     private long tripStartTimestamp;
     private float tripStartCredits;
@@ -119,6 +122,17 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         return lastNavMessage;
     }
 
+    /** Status line for HUD/intel. Omits a trailing trip-totals clause when 行程总结 is already shown. */
+    public String getPanelNavMessage() {
+        if (lastNavMessage == null) {
+            return null;
+        }
+        if (!hasTripSummary()) {
+            return lastNavMessage;
+        }
+        return UiText.stripTripSummarySuffix(lastNavMessage);
+    }
+
     public boolean isTripFinished() {
         return lastPlan != null && !lastPlan.isEmpty()
                 && nextWaypointIndex >= lastPlan.getStopCount();
@@ -126,6 +140,10 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
 
     public boolean isHudCollapsed() {
         return hudCollapsed;
+    }
+
+    public boolean isHudVisible() {
+        return hudVisible == null || hudVisible;
     }
 
     public boolean hasTripSummary() {
@@ -155,6 +173,14 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
 
     public void setHudCollapsed(boolean hudCollapsed) {
         this.hudCollapsed = hudCollapsed;
+    }
+
+    public void setHudVisible(boolean hudVisible) {
+        this.hudVisible = hudVisible;
+    }
+
+    public void toggleHudVisible() {
+        hudVisible = !isHudVisible();
     }
 
     public void setLastNavMessage(String lastNavMessage) {
@@ -277,7 +303,19 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     }
 
     public void executeNextStop() {
+        arrivalCooldownMarketId = null;
         StopExecutor.get().start(this);
+    }
+
+    /** Remember this market so auto-trade will not retry until the fleet leaves. */
+    public void rememberArrivalAttempt(String marketId) {
+        if (marketId != null && !marketId.isEmpty()) {
+            arrivalCooldownMarketId = marketId;
+        }
+    }
+
+    public boolean isOnArrivalCooldown() {
+        return isOnArrivalCooldown(Global.getSector().getPlayerFleet());
     }
 
     public void clearPlan() {
@@ -384,6 +422,11 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
             ui.updateUIForItem(this);
             return;
         }
+        if (BUTTON_TOGGLE_HUD.equals(buttonId)) {
+            toggleHudVisible();
+            ui.updateUIForItem(this);
+            return;
+        }
         if (BUTTON_SETTINGS.equals(buttonId)) {
             openSettings();
             ui.updateUIForItem(this);
@@ -394,46 +437,6 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
             return;
         }
         super.buttonPressConfirmed(buttonId, ui);
-    }
-
-    @Override
-    protected void advanceImpl(float amount) {
-        if (lastPlan == null || lastPlan.isEmpty() || isTripFinished()) {
-            return;
-        }
-        if (isStopExecutorActive()) {
-            return;
-        }
-        PlannerConfig cfg = PlannerConfig.load();
-        if (cfg == null || !cfg.isAutoAdvanceOnArrival()) {
-            return;
-        }
-        CampaignFleetAPI fleet = Global.getSector().getPlayerFleet();
-        if (fleet == null) {
-            return;
-        }
-        if (isOnArrivalCooldown(fleet)) {
-            return;
-        }
-        SectorEntityToken dest = currentWaypointEntity();
-        if (dest == null) {
-            return;
-        }
-        if (isArrivedAt(fleet, dest)) {
-            RouteLeg incoming = lastPlan.getIncomingLeg(nextWaypointIndex);
-            if (incoming != null && incoming.isPositioning()) {
-                String arrived = lastPlan.getStopMarketName(nextWaypointIndex);
-                arrivalCooldownMarketId = lastPlan.getStopMarketId(nextWaypointIndex);
-                lastNavMessage = UiText.arrivedBuyThenMark(arrived);
-                try {
-                    Global.getSector().getCampaignUI().addMessage(lastNavMessage, Misc.getHighlightColor());
-                } catch (Exception e) {
-                    log.info("TradeRoutePlanner arrival: " + lastNavMessage);
-                }
-                return;
-            }
-            applyArrivalAdvance(true);
-        }
     }
 
     @Override
@@ -546,9 +549,6 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         if (isTripFinished()) {
             captureTripSummary();
             msg = UiText.arrivedFinished(arrived);
-            if (tripSummaryReady) {
-                msg += " " + tripSummaryLine();
-            }
         } else {
             String next = lastPlan.getStopMarketName(nextWaypointIndex);
             msg = UiText.arrivedNext(arrived, next);
@@ -652,7 +652,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         return dist <= fleet.getRadius() + dest.getRadius();
     }
 
-    static boolean sameMarket(SectorEntityToken a, SectorEntityToken b) {
+    public static boolean sameMarket(SectorEntityToken a, SectorEntityToken b) {
         if (a == null || b == null) {
             return false;
         }
@@ -710,6 +710,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
             return;
         }
         calculating = true;
+        hudVisible = true;
         long t0 = now;
         try {
             calculateRouteBody(t0);

@@ -48,13 +48,13 @@ final class LunaConfigBridge {
         if (excludes != null) {
             cfg.setAssumeApiPriceExcludesTariff(excludes);
         }
-        Boolean autoAdvance = LunaSettings.getBoolean(PlannerConfig.MOD_ID, "autoAdvanceOnArrival");
-        if (autoAdvance != null) {
-            cfg.setAutoAdvanceOnArrival(autoAdvance);
+        Boolean autoTrade = LunaSettings.getBoolean(PlannerConfig.MOD_ID, "autoTradeOnArrival");
+        if (autoTrade != null) {
+            cfg.setAutoTradeOnArrival(autoTrade);
         }
-        Boolean hud = LunaSettings.getBoolean(PlannerConfig.MOD_ID, "hudEnabled");
-        if (hud != null) {
-            cfg.setHudEnabled(hud);
+        Boolean autoNav = LunaSettings.getBoolean(PlannerConfig.MOD_ID, "autoNavAfterTrade");
+        if (autoNav != null) {
+            cfg.setAutoNavAfterTrade(autoNav);
         }
         Integer supplyDays = LunaSettings.getInt(PlannerConfig.MOD_ID, "reserveSupplyDays");
         if (supplyDays != null) {

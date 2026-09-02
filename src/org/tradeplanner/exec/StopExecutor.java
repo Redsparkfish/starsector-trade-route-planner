@@ -67,6 +67,8 @@ public final class StopExecutor {
     private int stopIndex;
     private boolean wantBlack;
     private CoreUITradeMode tradeMode;
+    /** Set when the current run filled the sheet or confirmed there was nothing to do. */
+    private boolean pendingSuccess;
 
     public static StopExecutor get() {
         if (instance == null) {
@@ -84,41 +86,46 @@ public final class StopExecutor {
             intel.setLastNavMessage(UiText.EXEC_ALREADY);
             return;
         }
+        pendingSuccess = false;
         if (intel.getLastPlan() == null || intel.getLastPlan().isEmpty()) {
-            finish(intel, UiText.EXEC_NO_ROUTE, false);
+            finish(intel, UiText.EXEC_NO_ROUTE, false, false);
             return;
         }
         if (intel.isTripFinished()) {
-            finish(intel, UiText.TRIP_FINISHED_PERIOD, false);
+            finish(intel, UiText.TRIP_FINISHED_PERIOD, false, false);
             return;
         }
         if (Global.getCurrentState() != GameState.CAMPAIGN) {
-            finish(intel, UiText.EXEC_NOT_CAMPAIGN, false);
+            finish(intel, UiText.EXEC_NOT_CAMPAIGN, false, false);
             return;
         }
         CampaignUIAPI ui = Global.getSector().getCampaignUI();
-        if (ui != null && (ui.isShowingDialog() || ui.isShowingMenu() || ui.getCurrentInteractionDialog() != null)) {
-            finish(intel, UiText.EXEC_OTHER_DIALOG, false);
+        if (ui != null && ui.isShowingMenu()) {
+            finish(intel, UiText.EXEC_OTHER_DIALOG, false, false);
             return;
         }
         CampaignFleetAPI fleet = Global.getSector().getPlayerFleet();
         if (fleet == null) {
-            finish(intel, UiText.EXEC_NO_FLEET, false);
+            finish(intel, UiText.EXEC_NO_FLEET, false, false);
             return;
         }
         if (fleet.getBattle() != null) {
-            finish(intel, UiText.EXEC_IN_BATTLE, false);
+            finish(intel, UiText.EXEC_IN_BATTLE, false, false);
             return;
         }
         dest = intel.currentWaypointEntity();
         destName = intel.getLastPlan().getStopMarketName(intel.getNextWaypointIndex());
         if (dest == null) {
-            finish(intel, UiText.unresolvedEntity(destName), false);
+            finish(intel, UiText.unresolvedEntity(destName), false, false);
             return;
         }
         stopIndex = intel.getNextWaypointIndex();
         if (!TradeRouteIntelPlugin.isArrivedAt(fleet, dest)) {
-            finish(intel, UiText.EXEC_NOT_ARRIVED, false);
+            finish(intel, UiText.EXEC_NOT_ARRIVED, false, false);
+            return;
+        }
+        if (dialogIsForeign(dest)) {
+            finish(intel, UiText.EXEC_OTHER_DIALOG, false, false);
             return;
         }
         if (!hasWork(intel, stopIndex)) {
@@ -126,14 +133,17 @@ public final class StopExecutor {
             String msg = UiText.EXEC_NO_WORK;
             if (!intel.isTripFinished()) {
                 msg = UiText.noWorkNext(intel.getLastPlan().getStopMarketName(intel.getNextWaypointIndex()));
-            } else if (intel.hasTripSummary()) {
-                msg = msg + " " + intel.tripSummaryLine();
             }
-            finish(intel, msg, true);
+            finish(intel, msg, true, true);
             return;
         }
         intel.setLastNavMessage(UiText.EXEC_RUNNING);
         addMessage(UiText.EXEC_RUNNING);
+        if (dialogIsDest(dest)) {
+            phase = Phase.WAIT_MODE;
+            phaseAge = 0f;
+            return;
+        }
         if (ui != null && ui.getCurrentCoreTab() != null) {
             try {
                 ui.showCoreUITab(null);
@@ -151,7 +161,7 @@ public final class StopExecutor {
             return;
         }
         dismissQuietly();
-        finish(intel, reason, true);
+        finish(intel, reason, true, false);
     }
 
     /** Stop auto-trade without pausing or writing a campaign message. */
@@ -164,10 +174,11 @@ public final class StopExecutor {
     }
 
     public void advance(float amount) {
+        TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
         if (!isActive()) {
+            tryAutoStart(intel);
             return;
         }
-        TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
         if (intel == null) {
             reset();
             return;
@@ -220,6 +231,11 @@ public final class StopExecutor {
         CampaignUIAPI ui = Global.getSector().getCampaignUI();
         if (ui == null) {
             abort(intel, UiText.EXEC_CANT_DOCK);
+            return;
+        }
+        if (dialogIsDest(dest)) {
+            phase = Phase.WAIT_MODE;
+            phaseAge = 0f;
             return;
         }
         if (ui.isShowingDialog() || ui.getCurrentInteractionDialog() != null) {
@@ -321,9 +337,7 @@ public final class StopExecutor {
         }
         dismissDialog(dialog);
         intel.markArrived();
-        if (intel.hasTripSummary()) {
-            summary = summary + " " + intel.tripSummaryLine();
-        }
+        pendingSuccess = true;
         phase = Phase.DISMISSING;
         phaseAge = 0f;
         intel.setLastNavMessage(summary);
@@ -335,7 +349,7 @@ public final class StopExecutor {
             return;
         }
         String msg = intel.getLastNavMessage();
-        finish(intel, msg == null ? UiText.EXEC_DONE : msg, true);
+        finish(intel, msg == null ? UiText.EXEC_DONE : msg, true, pendingSuccess);
     }
 
     private boolean interrupted(TradeRouteIntelPlugin intel) {
@@ -687,13 +701,67 @@ public final class StopExecutor {
         dismissDialog(currentDialog());
     }
 
-    private void finish(TradeRouteIntelPlugin intel, String message, boolean pause) {
+    private void tryAutoStart(TradeRouteIntelPlugin intel) {
+        if (intel == null) {
+            return;
+        }
+        if (intel.getLastPlan() == null || intel.getLastPlan().isEmpty() || intel.isTripFinished()) {
+            return;
+        }
+        PlannerConfig cfg = intel.activeConfig();
+        if (cfg == null || !cfg.isAutoTradeOnArrival()) {
+            return;
+        }
+        if (Global.getCurrentState() != GameState.CAMPAIGN) {
+            return;
+        }
+        CampaignUIAPI ui = Global.getSector().getCampaignUI();
+        if (ui != null && ui.isShowingMenu()) {
+            return;
+        }
+        CampaignFleetAPI fleet = Global.getSector().getPlayerFleet();
+        if (fleet == null || fleet.getBattle() != null) {
+            return;
+        }
+        if (intel.isOnArrivalCooldown()) {
+            return;
+        }
+        SectorEntityToken next = intel.currentWaypointEntity();
+        if (next == null || !TradeRouteIntelPlugin.isArrivedAt(fleet, next)) {
+            return;
+        }
+        if (dialogIsForeign(next)) {
+            return;
+        }
+        intel.rememberArrivalAttempt(intel.getLastPlan().getStopMarketId(intel.getNextWaypointIndex()));
+        start(intel);
+    }
+
+    private static boolean dialogIsDest(SectorEntityToken dest) {
+        InteractionDialogAPI dialog = currentDialog();
+        return dialog != null && TradeRouteIntelPlugin.sameMarket(dialog.getInteractionTarget(), dest);
+    }
+
+    private static boolean dialogIsForeign(SectorEntityToken dest) {
+        InteractionDialogAPI dialog = currentDialog();
+        return dialog != null && !TradeRouteIntelPlugin.sameMarket(dialog.getInteractionTarget(), dest);
+    }
+
+    private void finish(TradeRouteIntelPlugin intel, String message, boolean pause, boolean success) {
         reset();
         if (intel != null && message != null) {
             intel.setLastNavMessage(message);
         }
         addMessage(message);
-        if (pause) {
+        boolean chainedNav = false;
+        if (success && intel != null && !intel.isTripFinished()) {
+            PlannerConfig cfg = intel.activeConfig();
+            if (cfg != null && cfg.isAutoNavAfterTrade()) {
+                intel.layInNextStop();
+                chainedNav = true;
+            }
+        }
+        if (pause && !chainedNav) {
             try {
                 Global.getSector().setPaused(true);
             } catch (Exception ignored) {
@@ -709,6 +777,7 @@ public final class StopExecutor {
         stopIndex = 0;
         wantBlack = false;
         tradeMode = null;
+        pendingSuccess = false;
     }
 
     private static void addMessage(String text) {

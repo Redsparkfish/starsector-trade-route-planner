@@ -3,7 +3,6 @@ package org.tradeplanner.ui;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.BaseCustomUIPanelPlugin;
 import com.fs.starfarer.api.input.InputEventAPI;
-import com.fs.starfarer.api.ui.Alignment;
 import com.fs.starfarer.api.ui.ButtonAPI;
 import com.fs.starfarer.api.ui.CustomPanelAPI;
 import com.fs.starfarer.api.ui.PositionAPI;
@@ -40,7 +39,8 @@ final class CampaignHudPanel {
     static final String BTN_NAV = "hud_nav";
     static final String BTN_EXECUTE = "hud_execute";
     static final String BTN_DETAIL = "hud_detail";
-    static final String BTN_TOGGLE = "hud_toggle";
+    static final String BTN_MIN = "hud_min";
+    static final String BTN_CLOSE = "hud_close";
     static final String BTN_CLEAR = "hud_clear";
 
     private CampaignHudPanel() {
@@ -111,14 +111,13 @@ final class CampaignHudPanel {
         Color h = Misc.getHighlightColor();
         RoutePlan plan = intel.getLastPlan();
         float inner = width - 8f;
-        info.addSectionHeading(UiText.TITLE, Alignment.MID, 2f);
+        addTitleBar(info, plugin, true, width);
         if (plan != null && !plan.isEmpty()) {
             if (intel.isTripFinished()) {
                 info.addPara(UiText.TRIP_FINISHED, 4f, h);
                 TradeRouteCustomPanel.appendTripSummary(info, intel, 2f);
             } else {
-                info.addPara(UiText.HUD_CPD, 3f, h,
-                        Misc.getDGSCredits(plan.getCreditsPerDay()));
+                TradeRouteCustomPanel.appendPlanTotals(info, plan, 3f);
                 NextStopReadout.of(intel).append(info, 2f);
             }
         } else if (plan != null && plan.isEmpty()) {
@@ -127,7 +126,7 @@ final class CampaignHudPanel {
         } else {
             info.addPara(UiText.HUD_NOT_CALCULATED, 4f, h);
         }
-        addButtonRow(info, plugin, intel, inner, true);
+        addButtonRow(info, plugin, intel, inner);
     }
 
     private static void buildExpanded(TooltipMakerAPI info, HudPlugin plugin,
@@ -137,10 +136,8 @@ final class CampaignHudPanel {
         Color neg = Misc.getNegativeHighlightColor();
         RoutePlan plan = intel.getLastPlan();
         float inner = width - 8f;
-        float btnH = 22f;
 
-        info.addSectionHeading(UiText.TITLE, Alignment.MID, 2f);
-        plugin.track(info.addButton(UiText.BTN_COLLAPSE, BTN_TOGGLE, 56f, 18f, 3f), BTN_TOGGLE);
+        addTitleBar(info, plugin, false, width);
 
         if (plan != null && !plan.isEmpty()) {
             TradeRouteCustomPanel.appendPlanTotals(info, plan, 4f);
@@ -160,52 +157,98 @@ final class CampaignHudPanel {
             info.addPara(UiText.NOT_CALCULATED_SHORT, 4f, h);
         }
 
-        if (intel.getLastNavMessage() != null) {
-            info.addPara("%s", 3f, h, intel.getLastNavMessage());
+        String navMsg = intel.getPanelNavMessage();
+        if (navMsg != null) {
+            info.addPara("%s", 3f, h, navMsg);
         }
 
-        plugin.track(info.addButton(UiText.BTN_CALCULATE, BTN_CALC, inner, btnH, 6f), BTN_CALC);
-        boolean hasRoute = plan != null && !plan.isEmpty();
-        if (hasRoute && !intel.isTripFinished()) {
-            plugin.track(info.addButton(UiText.BTN_NAV, BTN_NAV, inner, btnH, 3f), BTN_NAV);
-            plugin.track(info.addButton(UiText.BTN_EXECUTE, BTN_EXECUTE, inner, btnH, 3f), BTN_EXECUTE);
+        addActionStrips(info, plugin, intel, inner);
+    }
+
+    private static void addTitleBar(TooltipMakerAPI info, HudPlugin plugin, boolean collapsed, float width) {
+        CustomPanelAPI bar = Global.getSettings().createCustom(width, TITLE_H, null);
+        float btn = 18f;
+        float gap = 3f;
+        float pad = 4f;
+        float closeX = width - pad - btn;
+        float minX = closeX - gap - btn;
+        float titleW = Math.max(48f, minX - pad);
+        TooltipMakerAPI title = bar.createUIElement(titleW, TITLE_H, false);
+        title.setParaFontVictor14();
+        title.addPara(UiText.TITLE, 3f);
+        bar.addUIElement(title).inTL(pad, 0f);
+        addChromeButton(bar, plugin,
+                collapsed ? UiText.BTN_HUD_EXPAND : UiText.BTN_HUD_COLLAPSE, BTN_MIN, minX, btn);
+        addChromeButton(bar, plugin, UiText.BTN_HUD_CLOSE, BTN_CLOSE, closeX, btn);
+        info.addCustom(bar, 0f);
+    }
+
+    private static void addChromeButton(CustomPanelAPI bar, HudPlugin plugin,
+                                        String label, String id, float x, float size) {
+        TooltipMakerAPI t = bar.createUIElement(size, TITLE_H, false);
+        t.setButtonFontVictor10();
+        ButtonAPI button = t.addButton(label, id, size, size, 1f);
+        plugin.track(button, id);
+        bar.addUIElement(t).inTL(x, 1f);
+        bar.updateUIElementSizeAndMakeItProcessInput(t);
+    }
+
+    private static void addActionStrips(TooltipMakerAPI info, HudPlugin plugin,
+                                        TradeRouteIntelPlugin intel, float inner) {
+        RoutePlan plan = intel.getLastPlan();
+        boolean canTravel = plan != null && !plan.isEmpty() && !intel.isTripFinished();
+        float gap = 4f;
+        if (canTravel) {
+            CustomPanelAPI row = Global.getSettings().createCustom(inner, 22f, null);
+            float bw = (inner - gap * 2f) / 3f;
+            float x = 0f;
+            x += addStripButton(row, plugin, UiText.BTN_CALC_SHORT, BTN_CALC, x, bw);
+            x += gap;
+            x += addStripButton(row, plugin, UiText.BTN_NAV_SHORT, BTN_NAV, x, bw);
+            x += gap;
+            addStripButton(row, plugin, UiText.BTN_EXECUTE_SHORT, BTN_EXECUTE, x, bw);
+            info.addCustom(row, 6f);
+        } else {
+            plugin.track(info.addButton(UiText.BTN_CALCULATE, BTN_CALC, inner, 22f, 6f), BTN_CALC);
         }
+        CustomPanelAPI row2 = Global.getSettings().createCustom(inner, 22f, null);
         if (plan != null) {
-            plugin.track(info.addButton(UiText.BTN_CLEAR_SHORT, BTN_CLEAR, inner, btnH, 3f), BTN_CLEAR);
+            float bw = (inner - gap) / 2f;
+            addStripButton(row2, plugin, UiText.BTN_CLEAR_SHORT, BTN_CLEAR, 0f, bw);
+            addStripButton(row2, plugin, UiText.BTN_DETAIL, BTN_DETAIL, bw + gap, bw);
+        } else {
+            addStripButton(row2, plugin, UiText.BTN_DETAIL, BTN_DETAIL, 0f, inner);
         }
-        plugin.track(info.addButton(UiText.BTN_DETAIL, BTN_DETAIL, inner, btnH, 3f), BTN_DETAIL);
+        info.addCustom(row2, 3f);
     }
 
     private static void addButtonRow(TooltipMakerAPI info, HudPlugin plugin,
-                                     TradeRouteIntelPlugin intel, float inner, boolean collapsed) {
+                                     TradeRouteIntelPlugin intel, float inner) {
         RoutePlan plan = intel.getLastPlan();
         boolean canTravel = plan != null && !plan.isEmpty() && !intel.isTripFinished();
-        CustomPanelAPI strip = Global.getSettings().createCustom(inner, 22f, null);
         float gap = 4f;
-        int n = canTravel ? 3 : 2;
-        float bw = (inner - gap * (n - 1)) / n;
-        float x = 0f;
-        x += addStripButton(strip, plugin, UiText.BTN_CALC_SHORT, BTN_CALC, x, bw);
         if (canTravel) {
+            CustomPanelAPI strip = Global.getSettings().createCustom(inner, 22f, null);
+            float bw = (inner - gap * 2f) / 3f;
+            float x = 0f;
+            x += addStripButton(strip, plugin, UiText.BTN_CALC_SHORT, BTN_CALC, x, bw);
             x += gap;
             x += addStripButton(strip, plugin, UiText.BTN_NAV_SHORT, BTN_NAV, x, bw);
             x += gap;
             addStripButton(strip, plugin, UiText.BTN_EXECUTE_SHORT, BTN_EXECUTE, x, bw);
-            CustomPanelAPI strip2 = Global.getSettings().createCustom(inner, 22f, null);
-            float bw2 = (inner - gap) / 2f;
-            addStripButton(strip2, plugin, UiText.BTN_EXPAND, BTN_TOGGLE, 0f, bw2);
-            addStripButton(strip2, plugin, UiText.BTN_DETAIL_SHORT, BTN_DETAIL, bw2 + gap, bw2);
             info.addCustom(strip, 3f);
-            info.addCustom(strip2, 3f);
         } else {
-            x += gap;
-            addStripButton(strip, plugin, collapsed ? UiText.BTN_EXPAND : UiText.BTN_COLLAPSE, BTN_TOGGLE, x, bw);
-            info.addCustom(strip, 3f);
-            plugin.track(info.addButton(UiText.BTN_DETAIL, BTN_DETAIL, inner, 20f, 3f), BTN_DETAIL);
+            plugin.track(info.addButton(UiText.BTN_CALC_SHORT, BTN_CALC, inner, 20f, 3f), BTN_CALC);
         }
+        CustomPanelAPI strip2 = Global.getSettings().createCustom(inner, 22f, null);
         if (plan != null) {
-            plugin.track(info.addButton(UiText.BTN_CLEAR_SHORT, BTN_CLEAR, inner, 20f, 3f), BTN_CLEAR);
+            float bw2 = (inner - gap) / 2f;
+            addStripButton(strip2, plugin, UiText.BTN_DETAIL_SHORT, BTN_DETAIL, 0f, bw2);
+            addStripButton(strip2, plugin, UiText.BTN_CLEAR_SHORT, BTN_CLEAR, bw2 + gap, bw2);
+        } else {
+            addStripButton(strip2, plugin, UiText.BTN_DETAIL_SHORT, BTN_DETAIL, 0f, inner);
         }
+        info.addCustom(strip2, 3f);
     }
 
     private static float addStripButton(CustomPanelAPI strip, HudPlugin plugin,
@@ -342,8 +385,12 @@ final class CampaignHudPanel {
             }
             lastHandledId = id;
             lastHandledMs = now;
-            if (BTN_TOGGLE.equals(id)) {
+            if (BTN_MIN.equals(id)) {
                 intel.setHudCollapsed(!intel.isHudCollapsed());
+                return;
+            }
+            if (BTN_CLOSE.equals(id)) {
+                intel.setHudVisible(false);
                 return;
             }
             if (BTN_CALC.equals(id)) {

@@ -4,6 +4,7 @@ import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.ui.Alignment;
 import com.fs.starfarer.api.ui.CustomPanelAPI;
+import com.fs.starfarer.api.ui.LabelAPI;
 import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import com.fs.starfarer.api.util.Misc;
 import org.tradeplanner.config.PlannerConfig;
@@ -16,6 +17,7 @@ import org.tradeplanner.service.MarketDataCollector;
 
 import java.awt.Color;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Large intel layout: summary banner, next-stop job sheet, per-stop cards.
@@ -38,9 +40,10 @@ public final class TradeRouteCustomPanel {
 
         info.addSectionHeading(UiText.TITLE, Alignment.MID, 0f);
 
-        renderButtons(info, plan, intel.isTripFinished(), width, pad);
-        if (intel.getLastNavMessage() != null) {
-            info.addPara("%s", 3f, h, intel.getLastNavMessage());
+        renderButtons(info, intel, width, pad);
+        String navMsg = intel.getPanelNavMessage();
+        if (navMsg != null) {
+            info.addPara("%s", 3f, h, navMsg);
         }
 
         if (plan == null) {
@@ -60,15 +63,15 @@ public final class TradeRouteCustomPanel {
         }
 
         renderFleetLine(info, intel.getFleetState(), pad, h, cfg);
-        info.addButton(UiText.BTN_REFRESH, TradeRouteIntelPlugin.BUTTON_REFRESH, width - 20f, 24f, pad * 2f);
-
         List<String> factionIds = MarketDataCollector.economyFactionIds();
         String policy = UiText.factionPolicy(intel.getFactionTrade(), cfg, factionIds);
         info.addPara(UiText.SETTINGS_SUMMARY, pad, h,
                 UiText.loopKind(cfg.isLoop()),
                 String.valueOf(cfg.getMaxDays()),
                 policy);
-        info.addButton(UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS, width - 20f, 24f, 6f);
+        addIntelButtonRow(info, width - 20f, 6f,
+                UiText.BTN_REFRESH, TradeRouteIntelPlugin.BUTTON_REFRESH,
+                UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS);
         panel.addUIElement(info).inTL(0, 0);
     }
 
@@ -108,21 +111,55 @@ public final class TradeRouteCustomPanel {
                 String.valueOf(plan.getExtraStops()));
     }
 
-    private static void renderButtons(TooltipMakerAPI info, RoutePlan plan, boolean finished,
+    private static void renderButtons(TooltipMakerAPI info, TradeRouteIntelPlugin intel,
                                       float width, float pad) {
+        RoutePlan plan = intel.getLastPlan();
+        boolean finished = intel.isTripFinished();
         float w = width - 20f;
-        info.addButton(UiText.BTN_CALCULATE, TradeRouteIntelPlugin.BUTTON_CALCULATE, w, 24f, pad);
+        addIntelButtonRow(info, w, pad,
+                UiText.BTN_CALCULATE, TradeRouteIntelPlugin.BUTTON_CALCULATE,
+                UiText.hudToggle(intel.isHudVisible()), TradeRouteIntelPlugin.BUTTON_TOGGLE_HUD);
         if (plan != null && !plan.isEmpty()) {
-            String nav = finished ? UiText.TRIP_FINISHED : UiText.BTN_NAV;
-            info.addButton(nav, TradeRouteIntelPlugin.BUTTON_NAVIGATE, w, 24f, pad);
-            if (!finished) {
-                info.addButton(UiText.BTN_EXECUTE, TradeRouteIntelPlugin.BUTTON_EXECUTE, w, 24f, pad);
-                info.addButton(UiText.BTN_ARRIVE, TradeRouteIntelPlugin.BUTTON_ARRIVE, w, 24f, pad);
+            if (finished) {
+                addIntelButtonRow(info, w, pad,
+                        UiText.TRIP_FINISHED, TradeRouteIntelPlugin.BUTTON_NAVIGATE,
+                        UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR);
+            } else {
+                addIntelButtonRow(info, w, pad,
+                        UiText.BTN_NAV, TradeRouteIntelPlugin.BUTTON_NAVIGATE,
+                        UiText.BTN_EXECUTE, TradeRouteIntelPlugin.BUTTON_EXECUTE);
+                addIntelButtonRow(info, w, pad,
+                        UiText.BTN_ARRIVE, TradeRouteIntelPlugin.BUTTON_ARRIVE,
+                        UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR);
             }
+        } else if (plan != null) {
+            addIntelButtonRow(info, w, pad,
+                    UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR, null, null);
         }
-        if (plan != null) {
-            info.addButton(UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR, w, 24f, pad);
+    }
+
+    private static void addIntelButtonRow(TooltipMakerAPI info, float width, float pad,
+                                          String leftLabel, String leftId,
+                                          String rightLabel, String rightId) {
+        float gap = 4f;
+        float height = 24f;
+        if (rightLabel == null || rightId == null) {
+            info.addButton(leftLabel, leftId, width, height, pad);
+            return;
         }
+        CustomPanelAPI strip = Global.getSettings().createCustom(width, height, null);
+        float bw = (width - gap) / 2f;
+        addIntelStripButton(strip, leftLabel, leftId, 0f, bw, height);
+        addIntelStripButton(strip, rightLabel, rightId, bw + gap, bw, height);
+        info.addCustom(strip, pad);
+    }
+
+    private static void addIntelStripButton(CustomPanelAPI strip, String label, String id,
+                                            float x, float width, float height) {
+        TooltipMakerAPI t = strip.createUIElement(width, height, false);
+        t.addButton(label, id, width, height - 2f, 0f);
+        strip.addUIElement(t).inTL(x, 0f);
+        strip.updateUIElementSizeAndMakeItProcessInput(t);
     }
 
     private static void renderNextStopSheet(TooltipMakerAPI info, RoutePlan plan, int index,
@@ -262,8 +299,7 @@ public final class TradeRouteCustomPanel {
         Color value = plan.getNetProfit() >= 0f
                 ? Misc.getPositiveHighlightColor()
                 : Misc.getNegativeHighlightColor();
-        info.addPara(UiText.PLAN_TOTALS,
-                pad, value,
+        appendTotalsLine(info, UiText.PLAN_TOTALS, pad, value,
                 Misc.getDGSCredits(plan.getNetProfit()),
                 String.format("%.1f", plan.getTotalDays()),
                 Misc.getDGSCredits(plan.getCreditsPerDay()));
@@ -308,15 +344,62 @@ public final class TradeRouteCustomPanel {
         Color value = intel.getTripActualNet() >= 0f
                 ? Misc.getPositiveHighlightColor()
                 : Misc.getNegativeHighlightColor();
-        String title = intel.getLastPlan() != null && intel.getLastPlan().isLoop()
-                ? UiText.LOOP_SUMMARY_TITLE
-                : UiText.TRIP_SUMMARY_TITLE;
-        info.addPara(UiText.TRIP_SUMMARY,
-                pad, value,
-                title,
-                String.format("%.1f", intel.getTripActualDays()),
+        boolean loop = intel.getLastPlan() != null && intel.getLastPlan().isLoop();
+        appendTotalsLine(info, UiText.tripSummaryFormat(loop), pad, value,
                 Misc.getDGSCredits(intel.getTripActualNet()),
+                String.format("%.1f", intel.getTripActualDays()),
                 Misc.getDGSCredits(intel.getTripActualCpd()));
+    }
+
+    /**
+     * Each value is its own label with {@code addPara(text, color, pad)}. Highlight APIs that
+     * take several strings at once do not color the first amount on this line.
+     */
+    private static void appendTotalsLine(TooltipMakerAPI info, String format, float pad, Color value,
+                                         String net, String days, String cpd) {
+        String[] tokens = { net, days, cpd };
+        String[] bits = format.split(Pattern.quote("%s"), -1);
+        float height = 18f;
+        float maxW = info.getWidthSoFar();
+        if (maxW < 80f) {
+            maxW = 304f;
+        }
+        CustomPanelAPI row = Global.getSettings().createCustom(maxW, height * 2f, null);
+        float x = 0f;
+        float y = 0f;
+        float usedH = height;
+        for (int i = 0; i < bits.length; i++) {
+            if (bits[i] != null && !bits[i].isEmpty()) {
+                float[] pos = addColorFrag(row, bits[i], null, x, y, height, maxW);
+                x = pos[0];
+                y = pos[1];
+            }
+            if (i < tokens.length) {
+                float[] pos = addColorFrag(row, tokens[i], value, x, y, height, maxW);
+                x = pos[0];
+                y = pos[1];
+            }
+            usedH = Math.max(usedH, y + height);
+        }
+        row.getPosition().setSize(maxW, usedH);
+        info.addCustom(row, pad);
+    }
+
+    private static float[] addColorFrag(CustomPanelAPI row, String text, Color color,
+                                        float x, float y, float height, float maxW) {
+        TooltipMakerAPI t = row.createUIElement(maxW, height, false);
+        LabelAPI lab = color != null ? t.addPara(text, color, 0f) : t.addPara(text, 0f);
+        float w = 8f;
+        if (lab != null) {
+            w = Math.max(4f, lab.computeTextWidth(text));
+        }
+        if (x > 1f && x + w > maxW) {
+            x = 0f;
+            y += height;
+        }
+        t.getPosition().setSize(w + 2f, height);
+        row.addUIElement(t).inTL(x, y);
+        return new float[] { x + w, y };
     }
 
     public static void appendTradePreview(TooltipMakerAPI info, List<TradeAction> actions,

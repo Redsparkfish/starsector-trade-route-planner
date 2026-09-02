@@ -8,14 +8,13 @@ import com.fs.starfarer.api.campaign.CoreUITabId;
 import com.fs.starfarer.api.ui.CustomPanelAPI;
 import com.fs.starfarer.api.ui.PositionAPI;
 import com.fs.starfarer.api.ui.UIPanelAPI;
-import org.tradeplanner.config.PlannerConfig;
 import org.tradeplanner.model.RoutePlan;
 
 import java.util.List;
 
 /**
  * Injects the compact job sheet onto the campaign travel map and tears it down
- * for dialogs, core UI tabs, and when the HUD setting is off.
+ * for dialogs, core UI tabs, and when the save has hidden the HUD.
  */
 public final class CampaignHudScript implements EveryFrameScript {
 
@@ -148,8 +147,8 @@ public final class CampaignHudScript implements EveryFrameScript {
             if (Global.getCurrentState() != GameState.CAMPAIGN) {
                 return false;
             }
-            PlannerConfig cfg = PlannerConfig.load();
-            if (cfg == null || !cfg.isHudEnabled()) {
+            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
+            if (intel == null || !intel.isHudVisible()) {
                 return false;
             }
             CampaignUIAPI ui = Global.getSector().getCampaignUI();

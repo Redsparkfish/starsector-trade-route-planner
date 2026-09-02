@@ -35,8 +35,8 @@ public final class PlannerConfig {
     public static final int MIN_COMPUTE_BUDGET_MS = 50;
     public static final int MAX_COMPUTE_BUDGET_MS = 10000;
     public static final boolean DEFAULT_API_PRICE_EXCLUDES_TARIFF = true;
-    public static final boolean DEFAULT_AUTO_ADVANCE_ON_ARRIVAL = true;
-    public static final boolean DEFAULT_HUD_ENABLED = true;
+    public static final boolean DEFAULT_AUTO_TRADE_ON_ARRIVAL = false;
+    public static final boolean DEFAULT_AUTO_NAV_AFTER_TRADE = false;
     public static final int DEFAULT_RESERVE_SUPPLY_DAYS = 100;
     public static final int DEFAULT_RESERVE_FUEL_DAYS = 100;
     public static final int MIN_RESERVE_DAYS = 0;
@@ -61,8 +61,8 @@ public final class PlannerConfig {
     private float qtySafetyMargin = DEFAULT_QTY_SAFETY_MARGIN;
     private int computeBudgetMs = DEFAULT_COMPUTE_BUDGET_MS;
     private boolean assumeApiPriceExcludesTariff = DEFAULT_API_PRICE_EXCLUDES_TARIFF;
-    private boolean autoAdvanceOnArrival = DEFAULT_AUTO_ADVANCE_ON_ARRIVAL;
-    private boolean hudEnabled = DEFAULT_HUD_ENABLED;
+    private boolean autoTradeOnArrival = DEFAULT_AUTO_TRADE_ON_ARRIVAL;
+    private boolean autoNavAfterTrade = DEFAULT_AUTO_NAV_AFTER_TRADE;
     private int reserveSupplyDays = DEFAULT_RESERVE_SUPPLY_DAYS;
     private int reserveFuelDays = DEFAULT_RESERVE_FUEL_DAYS;
     private int maxStartRangeLy = DEFAULT_MAX_START_RANGE_LY;
@@ -110,8 +110,8 @@ public final class PlannerConfig {
             qtySafetyMargin = (float) obj.optDouble("qtySafetyMargin", DEFAULT_QTY_SAFETY_MARGIN);
             computeBudgetMs = obj.optInt("computeBudgetMs", DEFAULT_COMPUTE_BUDGET_MS);
             assumeApiPriceExcludesTariff = obj.optBoolean("assumeApiPriceExcludesTariff", DEFAULT_API_PRICE_EXCLUDES_TARIFF);
-            autoAdvanceOnArrival = obj.optBoolean("autoAdvanceOnArrival", DEFAULT_AUTO_ADVANCE_ON_ARRIVAL);
-            hudEnabled = obj.optBoolean("hudEnabled", DEFAULT_HUD_ENABLED);
+            autoTradeOnArrival = obj.optBoolean("autoTradeOnArrival", DEFAULT_AUTO_TRADE_ON_ARRIVAL);
+            autoNavAfterTrade = obj.optBoolean("autoNavAfterTrade", DEFAULT_AUTO_NAV_AFTER_TRADE);
             reserveSupplyDays = obj.optInt("reserveSupplyDays", DEFAULT_RESERVE_SUPPLY_DAYS);
             reserveFuelDays = obj.optInt("reserveFuelDays", DEFAULT_RESERVE_FUEL_DAYS);
             maxStartRangeLy = obj.optInt("maxStartRangeLY", DEFAULT_MAX_START_RANGE_LY);
@@ -177,12 +177,12 @@ public final class PlannerConfig {
         this.assumeApiPriceExcludesTariff = assumeApiPriceExcludesTariff;
     }
 
-    void setAutoAdvanceOnArrival(boolean autoAdvanceOnArrival) {
-        this.autoAdvanceOnArrival = autoAdvanceOnArrival;
+    void setAutoTradeOnArrival(boolean autoTradeOnArrival) {
+        this.autoTradeOnArrival = autoTradeOnArrival;
     }
 
-    void setHudEnabled(boolean hudEnabled) {
-        this.hudEnabled = hudEnabled;
+    void setAutoNavAfterTrade(boolean autoNavAfterTrade) {
+        this.autoNavAfterTrade = autoNavAfterTrade;
     }
 
     void setReserveSupplyDays(int reserveSupplyDays) {
@@ -299,12 +299,12 @@ public final class PlannerConfig {
         return assumeApiPriceExcludesTariff;
     }
 
-    public boolean isAutoAdvanceOnArrival() {
-        return autoAdvanceOnArrival;
+    public boolean isAutoTradeOnArrival() {
+        return autoTradeOnArrival;
     }
 
-    public boolean isHudEnabled() {
-        return hudEnabled;
+    public boolean isAutoNavAfterTrade() {
+        return autoNavAfterTrade;
     }
 
     /** Days of supply consumption kept out of trade. 0 disables. */

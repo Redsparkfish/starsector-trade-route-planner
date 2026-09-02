@@ -6,6 +6,7 @@ import org.tradeplanner.model.RoutePlan;
 import org.tradeplanner.model.TradeAction;
 
 import java.util.Collection;
+import java.util.regex.Pattern;
 
 /**
  * Player-facing copy. Layout stays in the panels; this class is the one place to change wording.
@@ -28,8 +29,9 @@ public final class UiText {
     public static final String BTN_REFRESH = "刷新舰队";
     public static final String BTN_SETTINGS = "规划设置";
     public static final String BTN_DETAIL = "打开详情";
-    public static final String BTN_COLLAPSE = "折叠";
-    public static final String BTN_EXPAND = "展开";
+    public static final String BTN_HUD_COLLAPSE = "-";
+    public static final String BTN_HUD_EXPAND = "+";
+    public static final String BTN_HUD_CLOSE = "x";
     public static final String BTN_OK = "确认";
     public static final String BTN_CANCEL = "取消";
     public static final String BTN_RESET = "恢复默认";
@@ -82,7 +84,7 @@ public final class UiText {
     public static final String SETTINGS_INTRO =
             "改完点（确认）保存并返回。本页改当前存档的开市、黑市和定位权重。";
     public static final String SETTINGS_LUNA_NOTE =
-            "路线时间、闭环、停靠上限、燃料和补给保留请到 F3（需 LunaLib）修改。";
+            "路线时间、闭环、停靠上限、到站后自动买卖、交易后导航、燃料和补给保留请到 F3（需 LunaLib）修改。";
     public static final String SETTINGS_ALPHA_HELP =
             "前往第一站也要花时间。0 更看重路线本身的收益；0.5 为默认，兼顾前往第一站的距离和之后的收益；"
                     + "1 完整计入前往第一站的时间。普通情况下保持默认即可。";
@@ -152,7 +154,7 @@ public final class UiText {
     public static final String REASON_TIMEOUT = "计算超时且无可行路线";
 
     public static final String CONFIG_LINE =
-            "路线时间上限 %s 天，闭环 %s，额外停靠 %s，第一站范围 %s 光年，定位权重 %s，到站自动切换 %s";
+            "路线时间上限 %s 天，闭环 %s，额外停靠 %s，第一站范围 %s 光年，定位权重 %s，到站后自动买卖 %s，交易后导航 %s";
     public static final String RESERVE_LINE =
             "补给保留 %s 天，燃料保留 %s 天（0 为不保留）";
     public static final String SETTINGS_SUMMARY = "%s，路线时间上限 %s 天，%s";
@@ -172,12 +174,13 @@ public final class UiText {
     public static final String MID_SUPPLY = "    途中补补给 %s（花费 %s）";
     public static final String SELL_LINE = "    -卖 %s x %s 收入 %s";
     public static final String BUY_LINE = "    +买 %s x %s 成本 %s";
-    public static final String PLAN_TOTALS = "预计总利润 %s，预计 %s 天，利润/天 %s";
+    public static final String PLAN_TOTALS = "预计总利润 %s，花费 %s 天，平均 %s 每天";
     public static final String POSITIONING_NOTE =
-            "其中前往第一站预计 %s 天，已计入预计天数和利润/天。";
+            "其中前往第一站预计 %s 天，已计入花费天数和平均每天。";
     public static final String THIS_COMPUTE = "搜索用时约 %s";
     public static final String COMPUTE_DONE = "计算完成。";
-    public static final String TRIP_SUMMARY = "%s：%s 天，实际总利润 %s，利润/天 %s";
+    public static final String TRIP_SUMMARY_BODY = "实际总利润 %s，花费 %s 天，平均 %s 每天";
+    public static final String TRIP_SUMMARY = "%s：" + TRIP_SUMMARY_BODY;
     public static final String PREVIEW_LINE = "  %s %s x %s";
     public static final String PREVIEW_MORE = "  ...其余 %s 项见详情。";
     public static final String PREVIEW_SUPPLY = "  +买 补给（保留） x %s";
@@ -202,6 +205,10 @@ public final class UiText {
 
     public static String onOff(boolean value) {
         return value ? ON : OFF;
+    }
+
+    public static String hudToggle(boolean visible) {
+        return "切换HUD显示（当前：" + onOff(visible) + "）";
     }
 
     public static String loopKind(boolean loop) {
@@ -272,7 +279,8 @@ public final class UiText {
                 String.valueOf(cfg.getMaxStops()),
                 String.valueOf(cfg.getMaxStartRangeLy()),
                 String.format("%.2f", cfg.getPosTimeWeight()),
-                onOff(cfg.isAutoAdvanceOnArrival()));
+                onOff(cfg.isAutoTradeOnArrival()),
+                onOff(cfg.isAutoNavAfterTrade()));
     }
 
     public static String reserveLine(PlannerConfig cfg) {
@@ -414,13 +422,33 @@ public final class UiText {
         return searchDuration(displayMs, truncated);
     }
 
-    public static String tripSummary(boolean loop, String days, String net, String cpd) {
+    public static String tripSummaryFormat(boolean loop) {
         String title = loop ? LOOP_SUMMARY_TITLE : TRIP_SUMMARY_TITLE;
-        return String.format(TRIP_SUMMARY, title, days, net, cpd);
+        return title + "：" + TRIP_SUMMARY_BODY;
+    }
+
+    public static String tripSummary(boolean loop, String net, String days, String cpd) {
+        return String.format(tripSummaryFormat(loop), net, days, cpd);
     }
 
     public static String tripSummaryLine(float days, String net, String cpd) {
-        return String.format("实际 %.1f 天，实际总利润 %s，利润/天 %s。", days, net, cpd);
+        return String.format(TRIP_SUMMARY_BODY, net, String.format("%.1f", days), cpd);
+    }
+
+    private static final Pattern OLD_TRIP_TAIL = Pattern.compile(
+            "\\s*实际\\s*[\\d.]+\\s*天[，,]\\s*实际总利润\\s+\\S+[，,]\\s*利润/天\\s+\\S+。?$");
+    private static final Pattern NEW_TRIP_TAIL = Pattern.compile(
+            "\\s*(?:行程总结：|闭环总结：)?实际总利润\\s+\\S+[，,]\\s*花费\\s*[\\d.]+\\s*天[，,]\\s*平均\\s+\\S+\\s*每天。?$");
+
+    /** Drops a trailing trip-totals clause so HUD/intel do not repeat 行程总结. */
+    public static String stripTripSummarySuffix(String msg) {
+        if (msg == null || msg.isEmpty()) {
+            return msg;
+        }
+        String cleaned = OLD_TRIP_TAIL.matcher(msg).replaceFirst("");
+        cleaned = NEW_TRIP_TAIL.matcher(cleaned).replaceFirst("");
+        cleaned = cleaned.trim();
+        return cleaned.isEmpty() ? null : cleaned;
     }
 
     public static String previewLine(boolean buy, String name, String qty) {
