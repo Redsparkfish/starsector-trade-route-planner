@@ -4,7 +4,7 @@ package org.tradeplanner.config;
  * Open-market vs black-market planning. Planner never toggles the transponder.
  *
  * <p>{@link #LEGAL_ONLY}: open market everywhere except factions on the black-market
- * allowlist (default pirates + luddic_path).
+ * allowlist (default pirates, luddic_path, independent).
  * {@link #ALLOW_BLACK_MARKET}: use black market at every market that has one.
  */
 public enum MarketMode {

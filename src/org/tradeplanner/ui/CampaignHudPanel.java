@@ -206,15 +206,7 @@ final class CampaignHudPanel {
         boolean canTravel = plan != null && !plan.isEmpty() && !intel.isTripFinished();
         float gap = 4f;
         if (canTravel) {
-            CustomPanelAPI row = Global.getSettings().createCustom(inner, 22f, null);
-            float bw = (inner - gap * 2f) / 3f;
-            float x = 0f;
-            x += addStripButton(row, plugin, UiText.BTN_CALC_SHORT, BTN_CALC, x, bw);
-            x += gap;
-            x += addStripButton(row, plugin, UiText.BTN_NAV_SHORT, BTN_NAV, x, bw);
-            x += gap;
-            addStripButton(row, plugin, UiText.BTN_EXECUTE_SHORT, BTN_EXECUTE, x, bw);
-            info.addCustom(row, 6f);
+            addExpandedTravelButtons(info, plugin, inner, gap);
         } else {
             plugin.track(info.addButton(UiText.BTN_CALCULATE, BTN_CALC, inner, 22f, 6f), BTN_CALC);
         }
@@ -228,6 +220,35 @@ final class CampaignHudPanel {
         }
         info.addCustom(row2, 3f);
         info.addSpacer(4f);
+    }
+
+    /**
+     * Full labels on the expanded sheet. Three ~6-character names do not fit one
+     * ~290px row, so wrap to two rows when each slot would be too narrow.
+     */
+    private static void addExpandedTravelButtons(TooltipMakerAPI info, HudPlugin plugin,
+                                                 float inner, float gap) {
+        float minFull = 118f;
+        float threeW = (inner - gap * 2f) / 3f;
+        if (threeW >= minFull) {
+            CustomPanelAPI row = Global.getSettings().createCustom(inner, 22f, null);
+            float x = 0f;
+            x += addStripButton(row, plugin, UiText.BTN_CALCULATE, BTN_CALC, x, threeW);
+            x += gap;
+            x += addStripButton(row, plugin, UiText.BTN_NAV, BTN_NAV, x, threeW);
+            x += gap;
+            addStripButton(row, plugin, UiText.BTN_EXECUTE, BTN_EXECUTE, x, threeW);
+            info.addCustom(row, 6f);
+            return;
+        }
+        float twoW = (inner - gap) / 2f;
+        CustomPanelAPI row1 = Global.getSettings().createCustom(inner, 22f, null);
+        addStripButton(row1, plugin, UiText.BTN_CALCULATE, BTN_CALC, 0f, twoW);
+        addStripButton(row1, plugin, UiText.BTN_NAV, BTN_NAV, twoW + gap, twoW);
+        info.addCustom(row1, 6f);
+        CustomPanelAPI row2 = Global.getSettings().createCustom(inner, 22f, null);
+        addStripButton(row2, plugin, UiText.BTN_EXECUTE, BTN_EXECUTE, 0f, inner);
+        info.addCustom(row2, 3f);
     }
 
     private static void addButtonRow(TooltipMakerAPI info, HudPlugin plugin,

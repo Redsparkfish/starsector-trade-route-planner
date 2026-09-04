@@ -47,6 +47,7 @@ public final class UiText {
     public static final String SECTION_SETTINGS = "规划设置";
     public static final String SECTION_ALPHA = "定位权重 alpha";
     public static final String SECTION_FACTIONS = "势力交易（本存档）";
+    public static final String SECTION_COMMODITIES = "商品交易（本存档）";
     public static final String JOB_QTY_NOTE = "数量为估算，到站后按实际库存成交。";
 
     public static final String YES = "是";
@@ -82,7 +83,7 @@ public final class UiText {
     public static final String COMMODITY_SUPPLIES = "补给";
 
     public static final String SETTINGS_INTRO =
-            "改完点（确认）保存并返回。本页改当前存档的开市、黑市和定位权重。";
+            "改完点（确认）保存并返回。本页改当前存档的开市、黑市、商品和定位权重。";
     public static final String SETTINGS_LUNA_NOTE =
             "路线时间、闭环、停靠上限、到站后自动买卖、交易后导航、燃料和补给保留请到 F3（需 LunaLib）修改。";
     public static final String SETTINGS_ALPHA_HELP =
@@ -90,8 +91,11 @@ public final class UiText {
                     + "1 完整计入前往第一站的时间。普通情况下保持默认即可。";
     public static final String SETTINGS_FACTION_HELP =
             "开市（合法市场）与黑市可分别开关。两边都关则不与该势力交易。"
-                    + "两边都开则先黑市；如果还有剩余货舱，并且通过开市继续交易仍然有利可图，也可能继续使用开市。";
+                    + "两边都开则优先在黑市交易；如果还有剩余货舱，并且通过开市继续交易仍然有利可图，也可能继续使用开市。";
     public static final String SETTINGS_NO_FACTIONS = "当前没有可列出的经济势力。";
+    public static final String SETTINGS_COMMODITY_HELP =
+            "关闭后，计算路线时不会买卖该商品。补给和燃料关闭后仍会按保留量补货，只是不再当作贸易商品。";
+    public static final String SETTINGS_NO_COMMODITIES = "当前没有可列出的贸易商品。";
     public static final String SETTINGS_SAVED = "已保存规划设置。请重新计算路线。";
     public static final String ALPHA_0 = "0，更看重路线本身的收益";
     public static final String ALPHA_025 = "0.25，略微考虑前往第一站";
@@ -157,7 +161,8 @@ public final class UiText {
             "路线时间上限 %s 天，闭环 %s，额外停靠 %s，第一站范围 %s 光年，定位权重 %s，到站后自动买卖 %s，交易后导航 %s";
     public static final String RESERVE_LINE =
             "补给保留 %s 天，燃料保留 %s 光年（0 为不保留）";
-    public static final String SETTINGS_SUMMARY = "%s，路线时间上限 %s 天，%s";
+    public static final String SETTINGS_SUMMARY = "%s，路线时间上限 %s 天";
+    public static final String SETTINGS_SUMMARY_POLICY = "%s，路线时间上限 %s 天，%s";
     public static final String FACTION_POLICY_LINE = "势力交易 %s。改完请重新计算。";
     public static final String PROFIT_COMPARE_NOTE = "未计入航行消耗的燃料和补给，适合比较路线。";
     public static final String SEARCH_TIME_UP = "搜索时间已到，这是当前找到的较好路线。";
@@ -194,7 +199,6 @@ public final class UiText {
     public static final String FACTION_WITH_MODE = "%s%s，%s";
     public static final String POLICY_ALL_BOTH = "全部：开市+黑市";
     public static final String POLICY_CUSTOM = "已自定义（见规划设置）";
-    public static final String POLICY_REST_OPEN = "其余：仅开市";
 
     private UiText() {
     }
@@ -301,20 +305,22 @@ public final class UiText {
         if (cfg == null) {
             return policy == null ? "" : policy;
         }
-        return String.format(SETTINGS_SUMMARY,
-                loopKind(cfg.isLoop()),
-                String.valueOf(cfg.getMaxDays()),
-                policy == null ? "" : policy);
+        String loop = loopKind(cfg.isLoop());
+        String days = String.valueOf(cfg.getMaxDays());
+        if (policy == null || policy.isEmpty()) {
+            return String.format(SETTINGS_SUMMARY, loop, days);
+        }
+        return String.format(SETTINGS_SUMMARY_POLICY, loop, days, policy);
     }
 
     public static String factionPolicy(FactionTradeSettings settings, PlannerConfig cfg,
                                        Collection<String> factionIds) {
         if (settings == null) {
-            return defaultFactionPolicy(cfg);
+            return "";
         }
         FactionTradeSettings.PolicySummary summary = settings.classify(cfg, factionIds);
         if (summary.kind == FactionTradeSettings.PolicyKind.DEFAULT) {
-            return defaultFactionPolicy(cfg);
+            return "";
         }
         if (summary.kind == FactionTradeSettings.PolicyKind.ALL_OPEN_BLACK) {
             return POLICY_ALL_BOTH;
@@ -323,17 +329,6 @@ public final class UiText {
             return "已自定义（" + summary.skippedCount + " 个势力不交易）";
         }
         return POLICY_CUSTOM;
-    }
-
-    public static String defaultFactionPolicy(PlannerConfig cfg) {
-        if (cfg == null) {
-            return POLICY_REST_OPEN;
-        }
-        String black = cfg.getBlackMarketFactionsDisplay();
-        if (black == null || black.isEmpty()) {
-            return OPEN_ONLY;
-        }
-        return black + "：仅黑市，其余：仅开市";
     }
 
     public static String factionMode(boolean open, boolean black) {

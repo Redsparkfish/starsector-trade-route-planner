@@ -2,8 +2,8 @@
 	"TradeRoutePlanner": {
 		"maxDays": 30,
 		"isLoop": true,
-		"blackMarketFactions": ["pirates", "luddic_path"],
-		"openMarketFactions": [],
+		"blackMarketFactions": ["pirates", "luddic_path", "independent"],
+		"openMarketFactions": ["pirates", "luddic_path", "independent"],
 		"maxStops": 4,
 		"qtySafetyMargin": 0.9,
 		"computeBudgetMs": 2000,

@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * Per-faction open/black toggles for the current campaign save.
- * Missing keys use {@link PlannerConfig} default lists (black-only vs open-only).
+ * Missing keys use {@link PlannerConfig} default lists (both-on vs open-only).
  */
 public final class FactionTradeSettings {
 

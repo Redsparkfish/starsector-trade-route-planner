@@ -16,6 +16,7 @@ import com.fs.starfarer.api.ui.SectorMapAPI;
 import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import com.fs.starfarer.api.util.Misc;
 import org.apache.log4j.Logger;
+import org.tradeplanner.config.CommodityTradeSettings;
 import org.tradeplanner.config.FactionTradeSettings;
 import org.tradeplanner.config.MarketMode;
 import org.tradeplanner.config.PlannerConfig;
@@ -54,6 +55,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     public static final String BUTTON_FACTION_RESET = "trp_faction_reset";
     public static final String PREFIX_FACTION_OPEN = "trp_fo:";
     public static final String PREFIX_FACTION_BLACK = "trp_fb:";
+    public static final String PREFIX_COMMODITY = "trp_co:";
     public static final String PREFIX_POS_WEIGHT = "trp_alpha:";
     public static final float[] POS_WEIGHT_CHOICES = {0f, 0.25f, 0.5f, 0.75f, 1f};
 
@@ -71,10 +73,12 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     private transient String arrivalCooldownMarketId;
     private transient boolean showingSettings;
     private transient FactionTradeSettings factionDraft;
+    private transient CommodityTradeSettings commodityDraft;
     private transient Float posTimeWeightDraft;
     /** Same-id echo after {@code updateUIForItem} rebuilds the large description mid-click. */
     private transient Object lastIntelButtonId;
     private transient long lastIntelButtonMs;
+    private transient IntelUIAPI lastIntelUi;
 
     private RoutePlan lastPlan;
     private int nextWaypointIndex;
@@ -90,6 +94,8 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     private float tripActualNet;
     private float tripActualCpd;
     private FactionTradeSettings factionTrade;
+    /** Per-save commodity on/off; missing keys are on. Null means old saves (all on). */
+    private CommodityTradeSettings commodityTrade;
     /** Per-save α; null means use settings.json / Luna default. */
     private Float posTimeWeight;
 
@@ -219,7 +225,8 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     public PlannerConfig activeConfig() {
         PlannerConfig cfg = PlannerConfig.load();
         ensureFactionTrade(cfg);
-        cfg.applyCampaign(factionTrade, posTimeWeight);
+        ensureCommodityTrade();
+        cfg.applyCampaign(factionTrade, commodityTrade, posTimeWeight);
         return cfg;
     }
 
@@ -247,6 +254,25 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         return factionDraft;
     }
 
+    public CommodityTradeSettings getCommodityDraft() {
+        return commodityDraft;
+    }
+
+    public CommodityTradeSettings ensureCommodityDraft() {
+        if (commodityDraft == null) {
+            ensureCommodityTrade();
+            commodityDraft = CommodityTradeSettings.snapshot(
+                    commodityTrade, MarketDataCollector.tradeCommodityIds());
+        }
+        return commodityDraft;
+    }
+
+    public void ensureCommodityTrade() {
+        if (commodityTrade == null) {
+            commodityTrade = new CommodityTradeSettings();
+        }
+    }
+
     /**
      * Seed once per campaign. Old ALLOW_BLACK_MARKET saves become both-on for current economy factions.
      */
@@ -263,8 +289,11 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     public void openSettings() {
         PlannerConfig cfg = PlannerConfig.load();
         ensureFactionTrade(cfg);
+        ensureCommodityTrade();
         factionDraft = FactionTradeSettings.snapshot(
                 factionTrade, MarketDataCollector.economyFactionIds(), cfg);
+        commodityDraft = CommodityTradeSettings.snapshot(
+                commodityTrade, MarketDataCollector.tradeCommodityIds());
         posTimeWeightDraft = effectivePosTimeWeight(cfg);
         showingSettings = true;
     }
@@ -272,14 +301,19 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     public void confirmSettings() {
         PlannerConfig cfg = PlannerConfig.load();
         ensureFactionTrade(cfg);
+        ensureCommodityTrade();
         if (factionDraft != null) {
             factionTrade.replaceWith(factionDraft);
+        }
+        if (commodityDraft != null) {
+            commodityTrade.replaceWith(commodityDraft);
         }
         if (posTimeWeightDraft != null) {
             posTimeWeight = PlannerConfig.clampFloat(posTimeWeightDraft,
                     PlannerConfig.MIN_POS_TIME_WEIGHT, PlannerConfig.MAX_POS_TIME_WEIGHT);
         }
         factionDraft = null;
+        commodityDraft = null;
         posTimeWeightDraft = null;
         showingSettings = false;
         lastNavMessage = UiText.SETTINGS_SAVED;
@@ -287,6 +321,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
 
     public void cancelSettings() {
         factionDraft = null;
+        commodityDraft = null;
         posTimeWeightDraft = null;
         showingSettings = false;
     }
@@ -297,6 +332,11 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
             factionDraft = new FactionTradeSettings();
         } else {
             factionDraft.clear();
+        }
+        if (commodityDraft == null) {
+            commodityDraft = new CommodityTradeSettings();
+        } else {
+            commodityDraft.clear();
         }
         posTimeWeightDraft = PlannerConfig.DEFAULT_POS_TIME_WEIGHT;
     }
@@ -386,14 +426,31 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public void buttonPressConfirmed(Object buttonId, IntelUIAPI ui) {
+        if (ui != null) {
+            lastIntelUi = ui;
+        }
+        if (!applyIntelButton(buttonId, ui)) {
+            super.buttonPressConfirmed(buttonId, ui);
+        }
+    }
+
+    /** Nested two-column strips inside the large description. */
+    public void notifyStripPress(Object buttonId) {
+        applyIntelButton(buttonId, lastIntelUi);
+    }
+
+    private boolean applyIntelButton(Object buttonId, IntelUIAPI ui) {
+        if (TradeSettingsPanel.handleFactionToggle(buttonId, this)) {
+            return true;
+        }
         if (isEchoIntelClick(buttonId)) {
-            return;
+            return true;
         }
         if (BUTTON_REFRESH.equals(buttonId)) {
             refreshSnapshot();
             lastNavMessage = null;
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (BUTTON_CALCULATE.equals(buttonId)) {
             if (isStopExecutorActive()) {
@@ -402,31 +459,31 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
             long t0 = System.currentTimeMillis();
             calculateRoute();
             long uiStarted = System.currentTimeMillis();
-            ui.updateUIForItem(this);
+            refreshIntelItem(ui);
             long uiMs = System.currentTimeMillis() - uiStarted;
             long totalMs = System.currentTimeMillis() - t0;
             log.info("TradeRoutePlanner calculateUI: uiMs=" + uiMs + " totalMs=" + totalMs);
-            return;
+            return true;
         }
         if (BUTTON_NAVIGATE.equals(buttonId)) {
             layInNextStop();
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (BUTTON_ARRIVE.equals(buttonId)) {
             markArrived();
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (BUTTON_EXECUTE.equals(buttonId)) {
             executeNextStop();
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (BUTTON_CLEAR.equals(buttonId)) {
             clearPlan();
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (BUTTON_TOGGLE_HUD.equals(buttonId)) {
             toggleHudVisible();
@@ -436,19 +493,26 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
                         lastNavMessage, Misc.getHighlightColor());
             } catch (Exception ignored) {
             }
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (BUTTON_SETTINGS.equals(buttonId)) {
             openSettings();
-            ui.updateUIForItem(this);
-            return;
+            refreshIntelItem(ui);
+            return true;
         }
         if (TradeSettingsPanel.handleButton(buttonId, this)) {
-            ui.updateUIForItem(this);
+            refreshIntelItem(ui);
+            return true;
+        }
+        return false;
+    }
+
+    private void refreshIntelItem(IntelUIAPI ui) {
+        if (ui == null) {
             return;
         }
-        super.buttonPressConfirmed(buttonId, ui);
+        ui.updateUIForItem(this);
     }
 
     /**

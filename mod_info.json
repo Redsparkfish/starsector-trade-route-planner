@@ -3,7 +3,7 @@
     "name": "Trade Route Planner 星区跑商智能规划器",
     "author": "Redsparkfish",
     "utility": true,
-    "version": "0.7.1",
+    "version": "0.7.2",
     "description": "根据舰队情况规划跑商路线，告诉你每站买卖什么。导航一次一站，到站后可自动买卖。",
     "gameVersion": "0.98a-RC8",
     "modPlugin": "org.tradeplanner.TradePlannerModPlugin",

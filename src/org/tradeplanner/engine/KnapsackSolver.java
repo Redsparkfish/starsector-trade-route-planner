@@ -153,6 +153,9 @@ public final class KnapsackSolver {
             if (buyRow.isFuel()) {
                 continue;
             }
+            if (config != null && !config.allowCommodityTrade(buyRow.getId())) {
+                continue;
+            }
             if (!blackBuy && buyRow.isIllegalOnOpenMarket()) {
                 continue;
             }
@@ -245,6 +248,9 @@ public final class KnapsackSolver {
             }
         }
         if (fuelRow == null) {
+            return out;
+        }
+        if (config != null && !config.allowCommodityTrade(fuelRow.getId())) {
             return out;
         }
         if (!blackBuy && fuelRow.isIllegalOnOpenMarket()) {

@@ -27,8 +27,8 @@ public final class PlannerConfig {
     public static final int MIN_DAYS = 5;
     public static final int MAX_DAYS = 60;
     public static final boolean DEFAULT_LOOP = true;
-    public static final String DEFAULT_BLACK_MARKET_FACTIONS = "pirates,luddic_path";
-    public static final String DEFAULT_OPEN_MARKET_FACTIONS = "";
+    public static final String DEFAULT_BLACK_MARKET_FACTIONS = "pirates,luddic_path,independent";
+    public static final String DEFAULT_OPEN_MARKET_FACTIONS = "pirates,luddic_path,independent";
     public static final int DEFAULT_MAX_STOPS = 4;
     public static final float DEFAULT_QTY_SAFETY_MARGIN = 0.9f;
     public static final int DEFAULT_COMPUTE_BUDGET_MS = 2000;
@@ -59,6 +59,7 @@ public final class PlannerConfig {
     private Set<String> blackMarketFactionIds = parseFactionList(DEFAULT_BLACK_MARKET_FACTIONS);
     private Set<String> openMarketFactionIds = parseFactionList(DEFAULT_OPEN_MARKET_FACTIONS);
     private FactionTradeSettings campaignTrade;
+    private CommodityTradeSettings campaignCommodities;
     private int maxStops = DEFAULT_MAX_STOPS;
     private float qtySafetyMargin = DEFAULT_QTY_SAFETY_MARGIN;
     private int computeBudgetMs = DEFAULT_COMPUTE_BUDGET_MS;
@@ -80,9 +81,15 @@ public final class PlannerConfig {
         return cfg;
     }
 
-    /** Overlay per-save faction toggles and α. Does not read the intel plugin. */
+    /** Overlay per-save faction toggles, commodity toggles, and α. Does not read the intel plugin. */
     public void applyCampaign(FactionTradeSettings trade, Float posWeight) {
+        applyCampaign(trade, null, posWeight);
+    }
+
+    public void applyCampaign(FactionTradeSettings trade, CommodityTradeSettings commodities,
+                              Float posWeight) {
         this.campaignTrade = trade;
+        this.campaignCommodities = commodities;
         if (posWeight != null) {
             setPosTimeWeight(posWeight);
         }
@@ -254,19 +261,15 @@ public final class PlannerConfig {
         return campaignTrade;
     }
 
-    /** Empty when the default black-market list is empty. */
-    public String getBlackMarketFactionsDisplay() {
-        if (blackMarketFactionIds == null || blackMarketFactionIds.isEmpty()) {
-            return "";
+    public boolean allowCommodityTrade(String commodityId) {
+        if (campaignCommodities == null) {
+            return true;
         }
-        StringBuilder sb = new StringBuilder();
-        for (String id : blackMarketFactionIds) {
-            if (sb.length() > 0) {
-                sb.append(", ");
-            }
-            sb.append(factionDisplayName(id));
-        }
-        return sb.toString();
+        return campaignCommodities.allow(commodityId);
+    }
+
+    public CommodityTradeSettings getCampaignCommodities() {
+        return campaignCommodities;
     }
 
     public static String factionDisplayName(String factionId) {
@@ -285,6 +288,9 @@ public final class PlannerConfig {
         }
         if ("luddic_path".equals(factionId)) {
             return "卢德左径";
+        }
+        if ("independent".equals(factionId)) {
+            return "非势力团体";
         }
         return factionId;
     }

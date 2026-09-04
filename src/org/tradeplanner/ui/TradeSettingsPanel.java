@@ -1,31 +1,43 @@
 package org.tradeplanner.ui;
 
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.BaseCustomUIPanelPlugin;
 import com.fs.starfarer.api.campaign.FactionAPI;
 import com.fs.starfarer.api.ui.Alignment;
 import com.fs.starfarer.api.ui.ButtonAPI;
 import com.fs.starfarer.api.ui.ButtonAPI.UICheckboxSize;
 import com.fs.starfarer.api.ui.CustomPanelAPI;
+import com.fs.starfarer.api.ui.LabelAPI;
 import com.fs.starfarer.api.ui.TooltipMakerAPI;
 import com.fs.starfarer.api.util.Misc;
+import org.tradeplanner.config.CommodityTradeSettings;
 import org.tradeplanner.config.FactionTradeSettings;
 import org.tradeplanner.config.PlannerConfig;
 import org.tradeplanner.service.MarketDataCollector;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Intel settings view: campaign knobs that change during a run. Checkboxes edit a draft;
- * only 确认 writes the save and returns to the planner.
+ * open/black toggles do not rebuild the panel (keeps scroll). 确认 writes the save
+ * and returns to the planner.
  */
 final class TradeSettingsPanel {
+
+    private static final float ROW_H = 22f;
+    private static final float BOX_W = 62f;
+    private static final float COMMODITY_BOX_W = 22f;
+    private static final float NAME_BOX_GAP = 8f;
+    private static final float COL_GAP = 10f;
+    private static final float TWO_COL_MIN_W = 460f;
 
     private TradeSettingsPanel() {
     }
 
     static void render(TradeRouteIntelPlugin intel, CustomPanelAPI panel, float width, float height) {
-        float pad = 10f;
+        float pad = 8f;
         float w = width - 20f;
         TooltipMakerAPI info = panel.createUIElement(width, height, true);
         Color h = Misc.getHighlightColor();
@@ -33,14 +45,16 @@ final class TradeSettingsPanel {
         PlannerConfig cfg = PlannerConfig.load();
         intel.ensureFactionTrade(cfg);
         FactionTradeSettings draft = intel.ensureFactionDraft();
+        CommodityTradeSettings commodities = intel.ensureCommodityDraft();
 
         info.addSectionHeading(UiText.SECTION_SETTINGS, Alignment.MID, 0f);
         info.addPara(UiText.SETTINGS_INTRO, pad);
-        info.addPara(UiText.SETTINGS_LUNA_NOTE, 3f);
+        info.addPara(UiText.SETTINGS_LUNA_NOTE, 2f);
 
         addActionButtons(info, w, pad);
         renderAlphaBlock(intel, info, w, pad);
-        renderFactionBlock(info, draft, cfg, pad, h, neg);
+        renderFactionBlock(info, draft, cfg, w, pad, h, neg);
+        renderCommodityBlock(info, commodities, w, pad, h, neg);
 
         panel.addUIElement(info).inTL(0, 0);
     }
@@ -49,14 +63,14 @@ final class TradeSettingsPanel {
                                          float w, float pad) {
         float draft = intel.ensurePosTimeWeightDraft();
         info.addSectionHeading(UiText.SECTION_ALPHA, Alignment.MID, pad);
-        info.addPara(UiText.SETTINGS_ALPHA_HELP, 3f);
+        info.addPara(UiText.SETTINGS_ALPHA_HELP, 2f);
         Color base = Misc.getBasePlayerColor();
         Color bg = Misc.getDarkPlayerColor();
         Color bright = Misc.getBrightPlayerColor();
         for (float v : TradeRouteIntelPlugin.POS_WEIGHT_CHOICES) {
             ButtonAPI box = info.addAreaCheckbox(UiText.alphaChoice(v),
                     TradeRouteIntelPlugin.PREFIX_POS_WEIGHT + formatAlphaId(v),
-                    base, bg, bright, w, 22f, 3f, true);
+                    base, bg, bright, w, 20f, 2f, true);
             if (box != null) {
                 box.setChecked(Math.abs(draft - v) < 0.001f);
             }
@@ -83,15 +97,31 @@ final class TradeSettingsPanel {
     }
 
     private static void addActionButtons(TooltipMakerAPI info, float w, float pad) {
-        info.addButton(UiText.BTN_OK, TradeRouteIntelPlugin.BUTTON_SETTINGS_OK, w, 24f, pad);
-        info.addButton(UiText.BTN_CANCEL, TradeRouteIntelPlugin.BUTTON_SETTINGS_CANCEL, w, 24f, 3f);
-        info.addButton(UiText.BTN_RESET, TradeRouteIntelPlugin.BUTTON_FACTION_RESET, 120f, 20f, 6f);
+        float gap = 4f;
+        float bw = (w - gap * 2f) / 3f;
+        ActionStripPlugin plugin = new ActionStripPlugin();
+        CustomPanelAPI strip = Global.getSettings().createCustom(w, 24f, plugin);
+        addActionButton(strip, plugin, UiText.BTN_OK, TradeRouteIntelPlugin.BUTTON_SETTINGS_OK, 0f, bw);
+        addActionButton(strip, plugin, UiText.BTN_CANCEL, TradeRouteIntelPlugin.BUTTON_SETTINGS_CANCEL,
+                bw + gap, bw);
+        addActionButton(strip, plugin, UiText.BTN_RESET, TradeRouteIntelPlugin.BUTTON_FACTION_RESET,
+                (bw + gap) * 2f, bw);
+        info.addCustom(strip, pad);
+    }
+
+    private static void addActionButton(CustomPanelAPI strip, ActionStripPlugin plugin,
+                                        String label, String id, float x, float width) {
+        TooltipMakerAPI t = strip.createUIElement(width, 24f, false);
+        ButtonAPI button = t.addButton(label, id, width, 22f, 0f);
+        plugin.track(button, id);
+        strip.addUIElement(t).inTL(x, 0f);
+        strip.updateUIElementSizeAndMakeItProcessInput(t);
     }
 
     private static void renderFactionBlock(TooltipMakerAPI info, FactionTradeSettings draft,
-                                           PlannerConfig cfg, float pad, Color h, Color neg) {
+                                           PlannerConfig cfg, float w, float pad, Color h, Color neg) {
         info.addSectionHeading(UiText.SECTION_FACTIONS, Alignment.MID, pad);
-        info.addPara(UiText.SETTINGS_FACTION_HELP, 3f);
+        info.addPara(UiText.SETTINGS_FACTION_HELP, 2f);
         List<String> ids = MarketDataCollector.economyFactionIds();
         if (ids.isEmpty()) {
             info.addPara(UiText.SETTINGS_NO_FACTIONS, 6f, h);
@@ -102,28 +132,126 @@ final class TradeSettingsPanel {
             player = Global.getSector().getPlayerFaction();
         } catch (Exception ignored) {
         }
-        for (String id : ids) {
-            FactionTradeSettings.Pref pref = draft.effective(id, cfg);
-            String hint = factionRelHint(id, player);
-            Color nameColor = pref.open || pref.black ? h : neg;
-            if (!pref.open && !pref.black) {
-                info.addPara(UiText.FACTION_NO_TRADE, 8f, nameColor,
-                        PlannerConfig.factionDisplayName(id), hint);
-            } else {
-                info.addPara(UiText.FACTION_WITH_MODE, 8f, nameColor,
-                        PlannerConfig.factionDisplayName(id), hint, UiText.factionMode(pref.open, pref.black));
-            }
-            ButtonAPI openBox = info.addCheckbox(16f, 16f, UiText.OPEN_MARKET,
-                    TradeRouteIntelPlugin.PREFIX_FACTION_OPEN + id, UICheckboxSize.SMALL, 2f);
-            if (openBox != null) {
-                openBox.setChecked(pref.open);
-            }
-            ButtonAPI blackBox = info.addCheckbox(16f, 16f, UiText.BLACK_MARKET,
-                    TradeRouteIntelPlugin.PREFIX_FACTION_BLACK + id, UICheckboxSize.SMALL, 2f);
-            if (blackBox != null) {
-                blackBox.setChecked(pref.black);
-            }
+        int cols = w >= TWO_COL_MIN_W ? 2 : 1;
+        float colW = cols == 1 ? w : (w - COL_GAP) / cols;
+        int rows = (ids.size() + cols - 1) / cols;
+        float maxNameW = Math.max(48f, colW - BOX_W * 2f - NAME_BOX_GAP);
+        FactionGridPlugin plugin = new FactionGridPlugin();
+        CustomPanelAPI grid = Global.getSettings().createCustom(w, rows * ROW_H, plugin);
+        float[] colNameW = new float[cols];
+        String[] labels = new String[ids.size()];
+        LabelAPI probe = nameWidthProbe(grid, maxNameW);
+        for (int i = 0; i < ids.size(); i++) {
+            labels[i] = PlannerConfig.factionDisplayName(ids.get(i)) + factionRelHint(ids.get(i), player);
+            int c = i % cols;
+            colNameW[c] = Math.max(colNameW[c], measureNameWidth(probe, labels[i], maxNameW));
         }
+        for (int i = 0; i < ids.size(); i++) {
+            int r = i / cols;
+            int c = i % cols;
+            addFactionRow(grid, plugin, ids.get(i), labels[i], draft, cfg,
+                    c * (colW + COL_GAP), r * ROW_H, colNameW[c], maxNameW, h, neg);
+        }
+        info.addCustom(grid, 4f);
+    }
+
+    private static LabelAPI nameWidthProbe(CustomPanelAPI grid, float maxNameW) {
+        TooltipMakerAPI probe = grid.createUIElement(maxNameW, ROW_H, false);
+        probe.setParaSmallInsignia();
+        return probe.addPara(" ", 0f);
+    }
+
+    private static float measureNameWidth(LabelAPI probe, String label, float maxNameW) {
+        if (probe == null || label == null) {
+            return Math.min(maxNameW, 48f);
+        }
+        return Math.min(maxNameW, Math.max(48f, probe.computeTextWidth(label) + 4f));
+    }
+
+    private static void addFactionRow(CustomPanelAPI grid, FactionGridPlugin plugin, String id,
+                                      String label, FactionTradeSettings draft, PlannerConfig cfg,
+                                      float x, float y, float colNameW, float maxNameW,
+                                      Color h, Color neg) {
+        FactionTradeSettings.Pref pref = draft.effective(id, cfg);
+        Color nameColor = pref.open || pref.black ? h : neg;
+
+        TooltipMakerAPI nameEl = grid.createUIElement(maxNameW, ROW_H, false);
+        nameEl.setParaSmallInsignia();
+        nameEl.addPara(label, nameColor, 3f);
+        nameEl.getPosition().setSize(colNameW, ROW_H);
+        grid.addUIElement(nameEl).inTL(x, y);
+
+        float boxX = x + colNameW + NAME_BOX_GAP;
+        ButtonAPI openBox = addRowCheckbox(grid, boxX, y, BOX_W,
+                UiText.OPEN_MARKET, TradeRouteIntelPlugin.PREFIX_FACTION_OPEN + id, pref.open);
+        ButtonAPI blackBox = addRowCheckbox(grid, boxX + BOX_W, y, BOX_W,
+                UiText.BLACK_MARKET, TradeRouteIntelPlugin.PREFIX_FACTION_BLACK + id, pref.black);
+        plugin.track(openBox, id, true, pref.open);
+        plugin.track(blackBox, id, false, pref.black);
+    }
+
+    private static void renderCommodityBlock(TooltipMakerAPI info, CommodityTradeSettings draft,
+                                             float w, float pad, Color h, Color neg) {
+        info.addSectionHeading(UiText.SECTION_COMMODITIES, Alignment.MID, pad);
+        info.addPara(UiText.SETTINGS_COMMODITY_HELP, 2f);
+        List<String> ids = MarketDataCollector.tradeCommodityIds();
+        if (ids.isEmpty()) {
+            info.addPara(UiText.SETTINGS_NO_COMMODITIES, 6f, h);
+            return;
+        }
+        if (draft == null) {
+            draft = new CommodityTradeSettings();
+        }
+        int cols = w >= TWO_COL_MIN_W ? 2 : 1;
+        float colW = cols == 1 ? w : (w - COL_GAP) / cols;
+        int rows = (ids.size() + cols - 1) / cols;
+        float maxNameW = Math.max(48f, colW - COMMODITY_BOX_W - NAME_BOX_GAP);
+        CommodityGridPlugin plugin = new CommodityGridPlugin();
+        CustomPanelAPI grid = Global.getSettings().createCustom(w, rows * ROW_H, plugin);
+        float[] colNameW = new float[cols];
+        String[] labels = new String[ids.size()];
+        LabelAPI probe = nameWidthProbe(grid, maxNameW);
+        for (int i = 0; i < ids.size(); i++) {
+            labels[i] = MarketDataCollector.commodityDisplayName(ids.get(i));
+            int c = i % cols;
+            colNameW[c] = Math.max(colNameW[c], measureNameWidth(probe, labels[i], maxNameW));
+        }
+        for (int i = 0; i < ids.size(); i++) {
+            int r = i / cols;
+            int c = i % cols;
+            addCommodityRow(grid, plugin, ids.get(i), labels[i], draft,
+                    c * (colW + COL_GAP), r * ROW_H, colNameW[c], maxNameW, h, neg);
+        }
+        info.addCustom(grid, 4f);
+    }
+
+    private static void addCommodityRow(CustomPanelAPI grid, CommodityGridPlugin plugin, String id,
+                                        String label, CommodityTradeSettings draft,
+                                        float x, float y, float colNameW, float maxNameW,
+                                        Color h, Color neg) {
+        boolean on = draft.allow(id);
+        Color nameColor = on ? h : neg;
+        TooltipMakerAPI nameEl = grid.createUIElement(maxNameW, ROW_H, false);
+        nameEl.setParaSmallInsignia();
+        nameEl.addPara(label, nameColor, 3f);
+        nameEl.getPosition().setSize(colNameW, ROW_H);
+        grid.addUIElement(nameEl).inTL(x, y);
+        ButtonAPI box = addRowCheckbox(grid, x + colNameW + NAME_BOX_GAP, y, COMMODITY_BOX_W,
+                "", TradeRouteIntelPlugin.PREFIX_COMMODITY + id, on);
+        plugin.track(box, id, on);
+    }
+
+    private static ButtonAPI addRowCheckbox(CustomPanelAPI grid, float x, float y, float width,
+                                            String text, String data, boolean checked) {
+        TooltipMakerAPI t = grid.createUIElement(width, ROW_H, false);
+        t.setButtonFontVictor10();
+        ButtonAPI box = t.addCheckbox(16f, 16f, text, data, UICheckboxSize.SMALL, 2f);
+        if (box != null) {
+            box.setChecked(checked);
+        }
+        grid.addUIElement(t).inTL(x, y);
+        grid.updateUIElementSizeAndMakeItProcessInput(t);
+        return box;
     }
 
     private static String factionRelHint(String factionId, FactionAPI player) {
@@ -178,21 +306,172 @@ final class TradeSettingsPanel {
                 return false;
             }
         }
-        FactionTradeSettings draft = intel.getFactionDraft();
-        if (draft == null) {
+        return false;
+    }
+
+    /**
+     * Nested grid writes draft from {@code isChecked}. Swallow intel echoes so the
+     * value is not inverted a second time.
+     */
+    static boolean handleFactionToggle(Object buttonId, TradeRouteIntelPlugin intel) {
+        if (!(buttonId instanceof String)) {
             return false;
         }
-        PlannerConfig cfg = PlannerConfig.load();
-        if (raw.startsWith(TradeRouteIntelPlugin.PREFIX_FACTION_OPEN)) {
-            String fid = raw.substring(TradeRouteIntelPlugin.PREFIX_FACTION_OPEN.length());
-            draft.setOpen(fid, !draft.allowOpen(fid, cfg), cfg);
-            return true;
+        String raw = (String) buttonId;
+        return raw.startsWith(TradeRouteIntelPlugin.PREFIX_FACTION_OPEN)
+                || raw.startsWith(TradeRouteIntelPlugin.PREFIX_FACTION_BLACK)
+                || raw.startsWith(TradeRouteIntelPlugin.PREFIX_COMMODITY);
+    }
+
+    private static final class ActionStripPlugin extends BaseCustomUIPanelPlugin {
+        private final List<TrackedAction> buttons = new ArrayList<>();
+
+        void track(ButtonAPI button, String id) {
+            if (button != null && id != null) {
+                buttons.add(new TrackedAction(button, id));
+            }
         }
-        if (raw.startsWith(TradeRouteIntelPlugin.PREFIX_FACTION_BLACK)) {
-            String fid = raw.substring(TradeRouteIntelPlugin.PREFIX_FACTION_BLACK.length());
-            draft.setBlack(fid, !draft.allowBlack(fid, cfg), cfg);
-            return true;
+
+        @Override
+        public void buttonPressed(Object buttonId) {
+            fire(buttonId);
         }
-        return false;
+
+        @Override
+        public void advance(float amount) {
+            for (TrackedAction tracked : buttons) {
+                if (tracked.button.isChecked()) {
+                    tracked.button.setChecked(false);
+                    fire(tracked.id);
+                    return;
+                }
+            }
+        }
+
+        private static void fire(Object buttonId) {
+            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
+            if (intel != null) {
+                intel.notifyStripPress(buttonId);
+            }
+        }
+
+        private static final class TrackedAction {
+            final ButtonAPI button;
+            final String id;
+
+            TrackedAction(ButtonAPI button, String id) {
+                this.button = button;
+                this.id = id;
+            }
+        }
+    }
+
+    private static final class FactionGridPlugin extends BaseCustomUIPanelPlugin {
+        private final List<TrackedBox> boxes = new ArrayList<>();
+
+        void track(ButtonAPI button, String factionId, boolean openChannel, boolean initial) {
+            if (button != null && factionId != null) {
+                boxes.add(new TrackedBox(button, factionId, openChannel, initial));
+            }
+        }
+
+        @Override
+        public void buttonPressed(Object buttonId) {
+            sync();
+        }
+
+        @Override
+        public void advance(float amount) {
+            sync();
+        }
+
+        private void sync() {
+            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
+            if (intel == null) {
+                return;
+            }
+            FactionTradeSettings draft = intel.getFactionDraft();
+            if (draft == null) {
+                return;
+            }
+            PlannerConfig cfg = PlannerConfig.load();
+            for (TrackedBox box : boxes) {
+                boolean now = box.button.isChecked();
+                if (now == box.last) {
+                    continue;
+                }
+                box.last = now;
+                if (box.openChannel) {
+                    draft.setOpen(box.factionId, now, cfg);
+                } else {
+                    draft.setBlack(box.factionId, now, cfg);
+                }
+            }
+        }
+
+        private static final class TrackedBox {
+            final ButtonAPI button;
+            final String factionId;
+            final boolean openChannel;
+            boolean last;
+
+            TrackedBox(ButtonAPI button, String factionId, boolean openChannel, boolean last) {
+                this.button = button;
+                this.factionId = factionId;
+                this.openChannel = openChannel;
+                this.last = last;
+            }
+        }
+    }
+
+    private static final class CommodityGridPlugin extends BaseCustomUIPanelPlugin {
+        private final List<TrackedBox> boxes = new ArrayList<>();
+
+        void track(ButtonAPI button, String commodityId, boolean initial) {
+            if (button != null && commodityId != null) {
+                boxes.add(new TrackedBox(button, commodityId, initial));
+            }
+        }
+
+        @Override
+        public void buttonPressed(Object buttonId) {
+            sync();
+        }
+
+        @Override
+        public void advance(float amount) {
+            sync();
+        }
+
+        private void sync() {
+            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
+            if (intel == null) {
+                return;
+            }
+            CommodityTradeSettings draft = intel.getCommodityDraft();
+            if (draft == null) {
+                return;
+            }
+            for (TrackedBox box : boxes) {
+                boolean now = box.button.isChecked();
+                if (now == box.last) {
+                    continue;
+                }
+                box.last = now;
+                draft.setAllow(box.commodityId, now);
+            }
+        }
+
+        private static final class TrackedBox {
+            final ButtonAPI button;
+            final String commodityId;
+            boolean last;
+
+            TrackedBox(ButtonAPI button, String commodityId, boolean last) {
+                this.button = button;
+                this.commodityId = commodityId;
+                this.last = last;
+            }
+        }
     }
 }

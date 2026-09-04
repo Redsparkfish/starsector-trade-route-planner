@@ -1,8 +1,10 @@
 package org.tradeplanner.ui;
 
 import com.fs.starfarer.api.Global;
+import com.fs.starfarer.api.campaign.BaseCustomUIPanelPlugin;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.ui.Alignment;
+import com.fs.starfarer.api.ui.ButtonAPI;
 import com.fs.starfarer.api.ui.CustomPanelAPI;
 import com.fs.starfarer.api.ui.LabelAPI;
 import com.fs.starfarer.api.ui.TooltipMakerAPI;
@@ -16,6 +18,7 @@ import org.tradeplanner.model.TradeAction;
 import org.tradeplanner.service.MarketDataCollector;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -65,10 +68,16 @@ public final class TradeRouteCustomPanel {
         renderFleetLine(info, intel.getFleetState(), pad, h, cfg);
         List<String> factionIds = MarketDataCollector.economyFactionIds();
         String policy = UiText.factionPolicy(intel.getFactionTrade(), cfg, factionIds);
-        info.addPara(UiText.SETTINGS_SUMMARY, pad, h,
-                UiText.loopKind(cfg.isLoop()),
-                String.valueOf(cfg.getMaxDays()),
-                policy);
+        if (policy == null || policy.isEmpty()) {
+            info.addPara(UiText.SETTINGS_SUMMARY, pad, h,
+                    UiText.loopKind(cfg.isLoop()),
+                    String.valueOf(cfg.getMaxDays()));
+        } else {
+            info.addPara(UiText.SETTINGS_SUMMARY_POLICY, pad, h,
+                    UiText.loopKind(cfg.isLoop()),
+                    String.valueOf(cfg.getMaxDays()),
+                    policy);
+        }
         addIntelButtonRow(info, width - 20f, 6f,
                 UiText.BTN_REFRESH, TradeRouteIntelPlugin.BUTTON_REFRESH,
                 UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS);
@@ -141,12 +150,74 @@ public final class TradeRouteCustomPanel {
     private static void addIntelButtonRow(TooltipMakerAPI info, float width, float pad,
                                           String leftLabel, String leftId,
                                           String rightLabel, String rightId) {
+        float gap = 4f;
         float height = 24f;
-        // Nested CustomPanel strips often never reach buttonPressConfirmed. Stack on the
-        // intel TooltipMaker so clicks go through the documented intel button path.
-        info.addButton(leftLabel, leftId, width, height, pad);
-        if (rightLabel != null && rightId != null) {
-            info.addButton(rightLabel, rightId, width, height, 3f);
+        if (rightLabel == null || rightId == null) {
+            info.addButton(leftLabel, leftId, width, height, pad);
+            return;
+        }
+        IntelStripPlugin plugin = new IntelStripPlugin();
+        CustomPanelAPI strip = Global.getSettings().createCustom(width, height, plugin);
+        float bw = (width - gap) / 2f;
+        addIntelStripButton(strip, plugin, leftLabel, leftId, 0f, bw, height);
+        addIntelStripButton(strip, plugin, rightLabel, rightId, bw + gap, bw, height);
+        info.addCustom(strip, pad);
+    }
+
+    private static void addIntelStripButton(CustomPanelAPI strip, IntelStripPlugin plugin,
+                                            String label, String id, float x, float width, float height) {
+        TooltipMakerAPI t = strip.createUIElement(width, height, false);
+        ButtonAPI button = t.addButton(label, id, width, height - 2f, 0f);
+        plugin.track(button, id);
+        strip.addUIElement(t).inTL(x, 0f);
+        strip.updateUIElementSizeAndMakeItProcessInput(t);
+    }
+
+    /**
+     * Nested intel strips often miss {@code buttonPressConfirmed}. Poll isChecked
+     * like the campaign HUD, and debounce in the intel plugin so a confirmed echo
+     * does not run twice.
+     */
+    private static final class IntelStripPlugin extends BaseCustomUIPanelPlugin {
+        private final List<Tracked> buttons = new ArrayList<>();
+
+        void track(ButtonAPI button, String id) {
+            if (button != null && id != null) {
+                buttons.add(new Tracked(button, id));
+            }
+        }
+
+        @Override
+        public void buttonPressed(Object buttonId) {
+            fire(buttonId);
+        }
+
+        @Override
+        public void advance(float amount) {
+            for (Tracked tracked : buttons) {
+                if (tracked.button.isChecked()) {
+                    tracked.button.setChecked(false);
+                    fire(tracked.id);
+                    return;
+                }
+            }
+        }
+
+        private static void fire(Object buttonId) {
+            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
+            if (intel != null) {
+                intel.notifyStripPress(buttonId);
+            }
+        }
+
+        private static final class Tracked {
+            final ButtonAPI button;
+            final String id;
+
+            Tracked(ButtonAPI button, String id) {
+                this.button = button;
+                this.id = id;
+            }
         }
     }
 

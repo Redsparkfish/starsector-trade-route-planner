@@ -86,6 +86,27 @@ public final class MarketDataCollector {
         return out;
     }
 
+    /** Economy trade goods shown in 规划设置, sorted by display name. */
+    public static List<String> tradeCommodityIds() {
+        List<String> out = new ArrayList<>(ECON_COMMODITY_IDS);
+        Collections.sort(out, (a, b) -> commodityDisplayName(a).compareToIgnoreCase(commodityDisplayName(b)));
+        return out;
+    }
+
+    public static String commodityDisplayName(String commodityId) {
+        if (commodityId == null) {
+            return "?";
+        }
+        try {
+            CommoditySpecAPI spec = Global.getSettings().getCommoditySpec(commodityId);
+            if (spec != null && spec.getName() != null && !spec.getName().isEmpty()) {
+                return spec.getName();
+            }
+        } catch (Exception ignored) {
+        }
+        return commodityId;
+    }
+
     public static boolean isCandidateMarket(MarketAPI market) {
         if (market == null) {
             return false;
@@ -132,6 +153,11 @@ public final class MarketDataCollector {
         for (CommodityOnMarketAPI com : market.getAllCommodities()) {
             CommoditySpecAPI spec = com.getCommodity();
             if (!isTradeCommodity(spec)) {
+                continue;
+            }
+            boolean tradeOn = config == null || config.allowCommodityTrade(spec.getId());
+            boolean logistics = Commodities.FUEL.equals(spec.getId()) || Commodities.SUPPLIES.equals(spec.getId());
+            if (!tradeOn && !logistics) {
                 continue;
             }
             int excess = Math.max(0, com.getExcessQuantity());

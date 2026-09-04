@@ -349,6 +349,9 @@ public final class RouteOptimizationEngine {
         }
         float hint = 0f;
         for (CommodityTradeInfo buy : from.getCommodities()) {
+            if (config != null && !config.allowCommodityTrade(buy.getId())) {
+                continue;
+            }
             int cap = buy.getEstimatedBuyMax();
             if (cap <= 0) {
                 continue;
