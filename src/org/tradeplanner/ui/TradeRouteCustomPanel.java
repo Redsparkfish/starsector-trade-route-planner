@@ -1,10 +1,8 @@
 package org.tradeplanner.ui;
 
 import com.fs.starfarer.api.Global;
-import com.fs.starfarer.api.campaign.BaseCustomUIPanelPlugin;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.ui.Alignment;
-import com.fs.starfarer.api.ui.ButtonAPI;
 import com.fs.starfarer.api.ui.CustomPanelAPI;
 import com.fs.starfarer.api.ui.LabelAPI;
 import com.fs.starfarer.api.ui.TooltipMakerAPI;
@@ -18,7 +16,6 @@ import org.tradeplanner.model.TradeAction;
 import org.tradeplanner.service.MarketDataCollector;
 
 import java.awt.Color;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -33,7 +30,10 @@ public final class TradeRouteCustomPanel {
 
     public static void render(TradeRouteIntelPlugin intel, CustomPanelAPI panel, float width, float height) {
         float pad = 10f;
-        TooltipMakerAPI info = panel.createUIElement(width, height, true);
+        float y = pad;
+        y += renderActionBar(panel, intel, width, y);
+        float bodyH = Math.max(80f, height - y);
+        TooltipMakerAPI info = panel.createUIElement(width, bodyH, true);
         Color h = Misc.getHighlightColor();
         Color pos = Misc.getPositiveHighlightColor();
         Color neg = Misc.getNegativeHighlightColor();
@@ -43,7 +43,6 @@ public final class TradeRouteCustomPanel {
 
         info.addSectionHeading(UiText.TITLE, Alignment.MID, 0f);
 
-        renderButtons(info, intel, width, pad);
         String navMsg = intel.getPanelNavMessage();
         if (navMsg != null) {
             info.addPara("%s", 3f, h, navMsg);
@@ -78,10 +77,7 @@ public final class TradeRouteCustomPanel {
                     String.valueOf(cfg.getMaxDays()),
                     policy);
         }
-        addIntelButtonRow(info, width - 20f, 6f,
-                UiText.BTN_REFRESH, TradeRouteIntelPlugin.BUTTON_REFRESH,
-                UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS);
-        panel.addUIElement(info).inTL(0, 0);
+        panel.addUIElement(info).inTL(0, y);
     }
 
     public static void appendSmallSummary(TooltipMakerAPI info, TradeRouteIntelPlugin intel) {
@@ -120,105 +116,34 @@ public final class TradeRouteCustomPanel {
                 String.valueOf(plan.getExtraStops()));
     }
 
-    private static void renderButtons(TooltipMakerAPI info, TradeRouteIntelPlugin intel,
-                                      float width, float pad) {
+    private static float renderActionBar(CustomPanelAPI panel, TradeRouteIntelPlugin intel, float width, float y) {
         RoutePlan plan = intel.getLastPlan();
         boolean finished = intel.isTripFinished();
-        float w = width - 20f;
-        addIntelButtonRow(info, w, pad,
+        float used = 0f;
+        used += IntelActionButtons.row(panel, y + used, width,
                 UiText.BTN_CALCULATE, TradeRouteIntelPlugin.BUTTON_CALCULATE,
                 UiText.hudToggle(intel.isHudVisible()), TradeRouteIntelPlugin.BUTTON_TOGGLE_HUD);
         if (plan != null && !plan.isEmpty()) {
             if (finished) {
-                addIntelButtonRow(info, w, pad,
+                used += IntelActionButtons.row(panel, y + used, width,
                         UiText.TRIP_FINISHED, TradeRouteIntelPlugin.BUTTON_NAVIGATE,
                         UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR);
             } else {
-                addIntelButtonRow(info, w, pad,
+                used += IntelActionButtons.row(panel, y + used, width,
                         UiText.BTN_NAV, TradeRouteIntelPlugin.BUTTON_NAVIGATE,
                         UiText.BTN_EXECUTE, TradeRouteIntelPlugin.BUTTON_EXECUTE);
-                addIntelButtonRow(info, w, pad,
+                used += IntelActionButtons.row(panel, y + used, width,
                         UiText.BTN_ARRIVE, TradeRouteIntelPlugin.BUTTON_ARRIVE,
                         UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR);
             }
         } else if (plan != null) {
-            addIntelButtonRow(info, w, pad,
-                    UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR, null, null);
+            used += IntelActionButtons.row(panel, y + used, width,
+                    UiText.BTN_CLEAR, TradeRouteIntelPlugin.BUTTON_CLEAR);
         }
-    }
-
-    private static void addIntelButtonRow(TooltipMakerAPI info, float width, float pad,
-                                          String leftLabel, String leftId,
-                                          String rightLabel, String rightId) {
-        float gap = 4f;
-        float height = 24f;
-        if (rightLabel == null || rightId == null) {
-            info.addButton(leftLabel, leftId, width, height, pad);
-            return;
-        }
-        IntelStripPlugin plugin = new IntelStripPlugin();
-        CustomPanelAPI strip = Global.getSettings().createCustom(width, height, plugin);
-        float bw = (width - gap) / 2f;
-        addIntelStripButton(strip, plugin, leftLabel, leftId, 0f, bw, height);
-        addIntelStripButton(strip, plugin, rightLabel, rightId, bw + gap, bw, height);
-        info.addCustom(strip, pad);
-    }
-
-    private static void addIntelStripButton(CustomPanelAPI strip, IntelStripPlugin plugin,
-                                            String label, String id, float x, float width, float height) {
-        TooltipMakerAPI t = strip.createUIElement(width, height, false);
-        ButtonAPI button = t.addButton(label, id, width, height - 2f, 0f);
-        plugin.track(button, id);
-        strip.addUIElement(t).inTL(x, 0f);
-        strip.updateUIElementSizeAndMakeItProcessInput(t);
-    }
-
-    /**
-     * Nested intel strips often miss {@code buttonPressConfirmed}. Poll isChecked
-     * like the campaign HUD, and debounce in the intel plugin so a confirmed echo
-     * does not run twice.
-     */
-    private static final class IntelStripPlugin extends BaseCustomUIPanelPlugin {
-        private final List<Tracked> buttons = new ArrayList<>();
-
-        void track(ButtonAPI button, String id) {
-            if (button != null && id != null) {
-                buttons.add(new Tracked(button, id));
-            }
-        }
-
-        @Override
-        public void buttonPressed(Object buttonId) {
-            fire(buttonId);
-        }
-
-        @Override
-        public void advance(float amount) {
-            for (Tracked tracked : buttons) {
-                if (tracked.button.isChecked()) {
-                    tracked.button.setChecked(false);
-                    fire(tracked.id);
-                    return;
-                }
-            }
-        }
-
-        private static void fire(Object buttonId) {
-            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
-            if (intel != null) {
-                intel.notifyStripPress(buttonId);
-            }
-        }
-
-        private static final class Tracked {
-            final ButtonAPI button;
-            final String id;
-
-            Tracked(ButtonAPI button, String id) {
-                this.button = button;
-                this.id = id;
-            }
-        }
+        used += IntelActionButtons.row(panel, y + used, width,
+                UiText.BTN_REFRESH, TradeRouteIntelPlugin.BUTTON_REFRESH,
+                UiText.BTN_SETTINGS, TradeRouteIntelPlugin.BUTTON_SETTINGS);
+        return used;
     }
 
     private static void renderNextStopSheet(TooltipMakerAPI info, RoutePlan plan, int index,

@@ -39,7 +39,13 @@ final class TradeSettingsPanel {
     static void render(TradeRouteIntelPlugin intel, CustomPanelAPI panel, float width, float height) {
         float pad = 8f;
         float w = width - 20f;
-        TooltipMakerAPI info = panel.createUIElement(width, height, true);
+        float y = pad;
+        y += IntelActionButtons.row(panel, y, width,
+                UiText.BTN_OK, TradeRouteIntelPlugin.BUTTON_SETTINGS_OK,
+                UiText.BTN_CANCEL, TradeRouteIntelPlugin.BUTTON_SETTINGS_CANCEL,
+                UiText.BTN_RESET, TradeRouteIntelPlugin.BUTTON_FACTION_RESET);
+        float bodyH = Math.max(80f, height - y);
+        TooltipMakerAPI info = panel.createUIElement(width, bodyH, true);
         Color h = Misc.getHighlightColor();
         Color neg = Misc.getNegativeHighlightColor();
         PlannerConfig cfg = PlannerConfig.load();
@@ -51,12 +57,11 @@ final class TradeSettingsPanel {
         info.addPara(UiText.SETTINGS_INTRO, pad);
         info.addPara(UiText.SETTINGS_LUNA_NOTE, 2f);
 
-        addActionButtons(info, w, pad);
         renderAlphaBlock(intel, info, w, pad);
         renderFactionBlock(info, draft, cfg, w, pad, h, neg);
         renderCommodityBlock(info, commodities, w, pad, h, neg);
 
-        panel.addUIElement(info).inTL(0, 0);
+        panel.addUIElement(info).inTL(0, y);
     }
 
     private static void renderAlphaBlock(TradeRouteIntelPlugin intel, TooltipMakerAPI info,
@@ -94,28 +99,6 @@ final class TradeSettingsPanel {
             return "0.75";
         }
         return Float.toString(v);
-    }
-
-    private static void addActionButtons(TooltipMakerAPI info, float w, float pad) {
-        float gap = 4f;
-        float bw = (w - gap * 2f) / 3f;
-        ActionStripPlugin plugin = new ActionStripPlugin();
-        CustomPanelAPI strip = Global.getSettings().createCustom(w, 24f, plugin);
-        addActionButton(strip, plugin, UiText.BTN_OK, TradeRouteIntelPlugin.BUTTON_SETTINGS_OK, 0f, bw);
-        addActionButton(strip, plugin, UiText.BTN_CANCEL, TradeRouteIntelPlugin.BUTTON_SETTINGS_CANCEL,
-                bw + gap, bw);
-        addActionButton(strip, plugin, UiText.BTN_RESET, TradeRouteIntelPlugin.BUTTON_FACTION_RESET,
-                (bw + gap) * 2f, bw);
-        info.addCustom(strip, pad);
-    }
-
-    private static void addActionButton(CustomPanelAPI strip, ActionStripPlugin plugin,
-                                        String label, String id, float x, float width) {
-        TooltipMakerAPI t = strip.createUIElement(width, 24f, false);
-        ButtonAPI button = t.addButton(label, id, width, 22f, 0f);
-        plugin.track(button, id);
-        strip.addUIElement(t).inTL(x, 0f);
-        strip.updateUIElementSizeAndMakeItProcessInput(t);
     }
 
     private static void renderFactionBlock(TooltipMakerAPI info, FactionTradeSettings draft,
@@ -321,49 +304,6 @@ final class TradeSettingsPanel {
         return raw.startsWith(TradeRouteIntelPlugin.PREFIX_FACTION_OPEN)
                 || raw.startsWith(TradeRouteIntelPlugin.PREFIX_FACTION_BLACK)
                 || raw.startsWith(TradeRouteIntelPlugin.PREFIX_COMMODITY);
-    }
-
-    private static final class ActionStripPlugin extends BaseCustomUIPanelPlugin {
-        private final List<TrackedAction> buttons = new ArrayList<>();
-
-        void track(ButtonAPI button, String id) {
-            if (button != null && id != null) {
-                buttons.add(new TrackedAction(button, id));
-            }
-        }
-
-        @Override
-        public void buttonPressed(Object buttonId) {
-            fire(buttonId);
-        }
-
-        @Override
-        public void advance(float amount) {
-            for (TrackedAction tracked : buttons) {
-                if (tracked.button.isChecked()) {
-                    tracked.button.setChecked(false);
-                    fire(tracked.id);
-                    return;
-                }
-            }
-        }
-
-        private static void fire(Object buttonId) {
-            TradeRouteIntelPlugin intel = TradeRouteIntelPlugin.getInstance();
-            if (intel != null) {
-                intel.notifyStripPress(buttonId);
-            }
-        }
-
-        private static final class TrackedAction {
-            final ButtonAPI button;
-            final String id;
-
-            TrackedAction(ButtonAPI button, String id) {
-                this.button = button;
-                this.id = id;
-            }
-        }
     }
 
     private static final class FactionGridPlugin extends BaseCustomUIPanelPlugin {

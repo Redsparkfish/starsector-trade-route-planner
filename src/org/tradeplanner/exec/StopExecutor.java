@@ -6,11 +6,13 @@ import com.fs.starfarer.api.campaign.CampaignFleetAPI;
 import com.fs.starfarer.api.campaign.CampaignUIAPI;
 import com.fs.starfarer.api.campaign.CampaignUIAPI.CoreUITradeMode;
 import com.fs.starfarer.api.campaign.CargoAPI;
+import com.fs.starfarer.api.campaign.CargoStackAPI;
 import com.fs.starfarer.api.campaign.CoreUITabId;
 import com.fs.starfarer.api.campaign.InteractionDialogAPI;
 import com.fs.starfarer.api.campaign.InteractionDialogPlugin;
 import com.fs.starfarer.api.campaign.PlayerMarketTransaction;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
+import com.fs.starfarer.api.campaign.econ.CommodityOnMarketAPI;
 import com.fs.starfarer.api.campaign.econ.CommoditySpecAPI;
 import com.fs.starfarer.api.campaign.econ.MarketAPI;
 import com.fs.starfarer.api.campaign.econ.SubmarketAPI;
@@ -19,7 +21,6 @@ import com.fs.starfarer.api.campaign.rules.MemoryAPI;
 import com.fs.starfarer.api.impl.campaign.ids.Commodities;
 import com.fs.starfarer.api.impl.campaign.ids.Submarkets;
 import com.fs.starfarer.api.impl.campaign.rulecmd.OpenCoreTab;
-import com.fs.starfarer.api.impl.campaign.submarkets.BaseSubmarketPlugin;
 import com.fs.starfarer.api.util.Misc;
 import org.apache.log4j.Logger;
 import org.tradeplanner.config.PlannerConfig;
@@ -648,24 +649,70 @@ public final class StopExecutor {
         }
     }
 
+    /**
+     * Shelf cargo is already moved. Shortage/surplus live on {@code CommodityOnMarketAPI}
+     * and are updated by the submarket plugin ({@code addTradeMod*} /
+     * {@code doShortageCountering}), not by the sector listener broadcast.
+     */
     private void reportTransaction(MarketAPI market, SubmarketAPI sub, CargoAPI sold, CargoAPI bought) {
+        if (market == null || sub == null || (cargoEmpty(sold) && cargoEmpty(bought))) {
+            return;
+        }
+        CoreUITradeMode mode = tradeMode == null ? CoreUITradeMode.OPEN : tradeMode;
+        PlayerMarketTransaction tx = new PlayerMarketTransaction(market, sub, mode);
+        tx.setSold(sold == null ? Global.getFactory().createCargo(true) : sold);
+        tx.setBought(bought == null ? Global.getFactory().createCargo(true) : bought);
+        log.info("TradeRoutePlanner economy before: " + economyLine(market, sold, bought, sub));
         try {
-            PlayerMarketTransaction tx = new PlayerMarketTransaction(market, sub, tradeMode);
-            if (tx.getSold() != null) {
-                tx.getSold().addAll(sold);
+            if (sub.getPlugin() != null) {
+                sub.getPlugin().reportPlayerMarketTransaction(tx);
             }
-            if (tx.getBought() != null) {
-                tx.getBought().addAll(bought);
-            }
+        } catch (Exception e) {
+            log.warn("TradeRoutePlanner submarket reportPlayerMarketTransaction failed", e);
+        }
+        try {
             Global.getSector().reportPlayerMarketTransaction(tx);
         } catch (Exception e) {
-            log.warn("TradeRoutePlanner reportPlayerMarketTransaction failed, applying plugin directly", e);
-            try {
-                if (sub.getPlugin() instanceof BaseSubmarketPlugin) {
-                    PlayerMarketTransaction tx = new PlayerMarketTransaction(market, sub, tradeMode);
-                    sub.getPlugin().reportPlayerMarketTransaction(tx);
-                }
-            } catch (Exception ignored) {
+            log.warn("TradeRoutePlanner sector reportPlayerMarketTransaction failed", e);
+        }
+        log.info("TradeRoutePlanner economy after: " + economyLine(market, sold, bought, sub));
+    }
+
+    private static boolean cargoEmpty(CargoAPI cargo) {
+        return cargo == null || cargo.isEmpty();
+    }
+
+    private static String economyLine(MarketAPI market, CargoAPI sold, CargoAPI bought, SubmarketAPI sub) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("sub=");
+        String subId = "-";
+        try {
+            if (sub != null && sub.getSpec() != null && sub.getSpec().getId() != null) {
+                subId = sub.getSpec().getId();
+            }
+        } catch (Exception ignored) {
+        }
+        sb.append(subId);
+        appendCargoMods(sb, market, sold, " sold");
+        appendCargoMods(sb, market, bought, " bought");
+        return sb.toString();
+    }
+
+    private static void appendCargoMods(StringBuilder sb, MarketAPI market, CargoAPI cargo, String label) {
+        if (cargoEmpty(cargo) || market == null) {
+            return;
+        }
+        sb.append(label);
+        for (CargoStackAPI stack : cargo.getStacksCopy()) {
+            if (stack == null || !stack.isCommodityStack() || stack.getCommodityId() == null) {
+                continue;
+            }
+            String id = stack.getCommodityId();
+            CommodityOnMarketAPI com = market.getCommodityData(id);
+            sb.append(" ").append(id).append("x").append((int) stack.getSize());
+            if (com != null) {
+                sb.append(" def=").append(com.getDeficitQuantity());
+                sb.append(" xs=").append(com.getExcessQuantity());
             }
         }
     }

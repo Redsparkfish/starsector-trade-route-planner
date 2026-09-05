@@ -1,8 +1,10 @@
 package org.tradeplanner.ui;
 
+import com.fs.starfarer.api.EveryFrameScript;
 import com.fs.starfarer.api.Global;
 import com.fs.starfarer.api.campaign.CampaignClockAPI;
 import com.fs.starfarer.api.campaign.CampaignFleetAPI;
+import com.fs.starfarer.api.campaign.CampaignUIAPI;
 import com.fs.starfarer.api.campaign.CoreUITabId;
 import com.fs.starfarer.api.campaign.InteractionDialogAPI;
 import com.fs.starfarer.api.campaign.SectorEntityToken;
@@ -75,10 +77,11 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     private transient FactionTradeSettings factionDraft;
     private transient CommodityTradeSettings commodityDraft;
     private transient Float posTimeWeightDraft;
-    /** Same-id echo after {@code updateUIForItem} rebuilds the large description mid-click. */
+    /** Same-id echo if a rebuild still lands while the mouse is down. */
     private transient Object lastIntelButtonId;
     private transient long lastIntelButtonMs;
     private transient IntelUIAPI lastIntelUi;
+    private transient boolean intelRefreshQueued;
 
     private RoutePlan lastPlan;
     private int nextWaypointIndex;
@@ -414,6 +417,7 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
 
     @Override
     public void createLargeDescription(CustomPanelAPI panel, float width, float height) {
+        rememberIntelUi(panel);
         if (showingSettings) {
             TradeSettingsPanel.render(this, panel, width, height);
             return;
@@ -434,9 +438,17 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         }
     }
 
-    /** Nested two-column strips inside the large description. */
-    public void notifyStripPress(Object buttonId) {
-        applyIntelButton(buttonId, lastIntelUi);
+    void rememberIntelUi(CustomPanelAPI panel) {
+        if (panel == null) {
+            return;
+        }
+        try {
+            IntelUIAPI ui = panel.getIntelUI();
+            if (ui != null) {
+                lastIntelUi = ui;
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private boolean applyIntelButton(Object buttonId, IntelUIAPI ui) {
@@ -477,7 +489,11 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
         }
         if (BUTTON_EXECUTE.equals(buttonId)) {
             executeNextStop();
-            refreshIntelItem(ui);
+            // Executor closes the intel tab to dock. Rebuilding the large description
+            // here would race that close and leave CLOSING_UI stuck until timeout.
+            if (!isStopExecutorActive()) {
+                refreshIntelItem(ui);
+            }
             return true;
         }
         if (BUTTON_CLEAR.equals(buttonId)) {
@@ -509,10 +525,48 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
     }
 
     private void refreshIntelItem(IntelUIAPI ui) {
-        if (ui == null) {
+        if (ui != null) {
+            lastIntelUi = ui;
+        }
+        queueIntelRefresh();
+    }
+
+    private void queueIntelRefresh() {
+        if (intelRefreshQueued) {
             return;
         }
-        ui.updateUIForItem(this);
+        intelRefreshQueued = true;
+        try {
+            Global.getSector().addTransientScript(new IntelUiRefreshScript(this));
+        } catch (Exception e) {
+            intelRefreshQueued = false;
+            flushIntelRefresh();
+        }
+    }
+
+    void flushIntelRefresh() {
+        intelRefreshQueued = false;
+        IntelUIAPI ui = lastIntelUi;
+        if (ui == null || !intelTabOpen() || isStopExecutorActive()) {
+            return;
+        }
+        try {
+            ui.updateUIForItem(this);
+        } catch (Exception e) {
+            try {
+                ui.recreateIntelUI();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private static boolean intelTabOpen() {
+        try {
+            CampaignUIAPI campaignUi = Global.getSector().getCampaignUI();
+            return campaignUi != null && campaignUi.getCurrentCoreTab() == CoreUITabId.INTEL;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -913,5 +967,52 @@ public class TradeRouteIntelPlugin extends BaseIntelPlugin {
                 + " fuelPerLY=" + (fleetState == null ? 0 : fleetState.getFuelPerLightYear())
                 + " margin=" + cfg.getQtySafetyMargin()
                 + " ms=" + lastSnapshotDurationMs);
+    }
+
+    /**
+     * Rebuild after the current click finishes. Immediate {@code updateUIForItem}
+     * while the mouse is down leaves the intel large description unable to redraw
+     * until the tab is recreated.
+     */
+    private static final class IntelUiRefreshScript implements EveryFrameScript {
+        private final TradeRouteIntelPlugin intel;
+        private boolean done;
+        private int frames;
+
+        IntelUiRefreshScript(TradeRouteIntelPlugin intel) {
+            this.intel = intel;
+        }
+
+        @Override
+        public boolean isDone() {
+            return done;
+        }
+
+        @Override
+        public boolean runWhilePaused() {
+            return true;
+        }
+
+        @Override
+        public void advance(float amount) {
+            if (done || intel == null) {
+                done = true;
+                return;
+            }
+            frames++;
+            if (leftMouseDown() && frames < 20) {
+                return;
+            }
+            done = true;
+            intel.flushIntelRefresh();
+        }
+
+        private static boolean leftMouseDown() {
+            try {
+                return org.lwjgl.input.Mouse.isButtonDown(0);
+            } catch (Exception e) {
+                return false;
+            }
+        }
     }
 }
